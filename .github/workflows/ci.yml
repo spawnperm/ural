@@ -1,0 +1,149 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Deny by default. Every job below asks for exactly what it needs, so a
+# compromised action in one job cannot write to the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22.x'
+
+jobs:
+  quality:
+    name: Types, tests, coverage & docs gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The env-docs gate and the git tests read history and remote refs.
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (strict)
+        run: pnpm run lint
+
+      - name: Verify .env.example matches the code
+        run: pnpm run check:env-docs
+
+      - name: Run tests with coverage
+        run: pnpm run test:coverage
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+
+  build:
+    name: Production build & bundle budget
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: quality
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Verify bundle budget
+        # The documentation portal is a single page of prose and a handful of
+        # components, so 600 KB of JS is a generous ceiling that still catches an
+        # accidentally imported heavy dependency. The previous project's budget
+        # covered a lazy-loaded spreadsheet engine; this one has no such excuse.
+        run: |
+          set -euo pipefail
+          JS_BYTES=$(find dist/assets -name '*.js' -printf '%s\n' | awk '{t+=$1} END {print t+0}')
+          CSS_BYTES=$(find dist/assets -name '*.css' -printf '%s\n' | awk '{t+=$1} END {print t+0}')
+          JS_KB=$((JS_BYTES / 1024))
+          CSS_KB=$((CSS_BYTES / 1024))
+          echo "JS: ${JS_KB} KB, CSS: ${CSS_KB} KB"
+          echo "JS: ${JS_KB} KB, CSS: ${CSS_KB} KB" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$JS_KB" -gt 600 ]; then
+            echo "::error::JS bundle ${JS_KB} KB exceeds the 600 KB budget"
+            exit 1
+          fi
+          if [ "$CSS_KB" -gt 120 ]; then
+            echo "::error::CSS bundle ${CSS_KB} KB exceeds the 120 KB budget"
+            exit 1
+          fi
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  security:
+    name: Secret & dependency scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        # Pinned by digest: a floating tag would let an upstream compromise run
+        # arbitrary code with the workflow token.
+        run: |
+          docker run --rm -v "$PWD:/repo" \
+            zricethezav/gitleaks:v8.28.0 \
+            detect --source=/repo --config=/repo/.gitleaks.toml --no-git --redact -v
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit production dependencies
+        # Fails on high and critical advisories only. Blocking on `low` would
+        # freeze the project on advisories with no exploit path.
+        run: pnpm audit --prod --audit-level high

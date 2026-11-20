@@ -1,0 +1,31 @@
+# Gitleaks configuration.
+#
+# Purpose: keep secret scanning strict for real credentials while allowing the
+# values that are intentionally committed as placeholders.
+#
+# Run locally:
+#   docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 \
+#     detect --source=/repo --config=/repo/.gitleaks.toml --no-git --redact -v
+
+title = "ural"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholders that are not credentials"
+
+paths = [
+  # The example file ships with placeholder values only; it is the documented
+  # template, not a leak. Every entry there is empty or obviously fake.
+  '''^\.env\.example$''',
+  # Test fixtures build synthetic tokens to assert they are redacted. They grant
+  # nothing: the values exist only inside the test process.
+  '''^src/tests/.*\.ts$''',
+]
+
+regexes = [
+  # Placeholder tokens from the template and from documentation examples.
+  '''ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789''',
+  '''ghp_TESTSECRETVALUE[0-9A-Z]+''',
+]

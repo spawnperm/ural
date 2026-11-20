@@ -1,0 +1,54 @@
+services:
+  app:
+    build: .
+    container_name: ural-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Inside the container the server must accept connections from the port
+      # mapping, so loopback is wrong here.
+      HOST: 0.0.0.0
+      APP_VERSION: ${APP_VERSION:-1.0.0}
+      GIT_BRANCH: ${GIT_BRANCH:-main}
+      GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-unknown}
+      # Pushing from inside the container needs a token; without it the commit
+      # panel still works, but push answers 401. Read from `.env`, never inlined.
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GIT_USER_NAME: ${GIT_USER_NAME:-spawnperm}
+      GIT_USER_EMAIL: ${GIT_USER_EMAIL:-spawnperm@gmail.com}
+    ports:
+      # Bound to loopback on the host by default. Put a reverse proxy in front
+      # for public access; do not publish 3000 on all interfaces.
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # The Git API operates on a checkout, not on the image's copy.
+      - .:/app
+      # Keep the image's node_modules; a bind mount would replace them with the
+      # host's (possibly platform-mismatched) tree.
+      - /app/node_modules
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+      restart_policy:
+        condition: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 15s

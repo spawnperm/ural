@@ -6,3 +6,12 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local agent-tooling state, not project content.
+.mnemon/
+
+# The project uses pnpm; a stray npm/yarn lockfile would reintroduce a second
+# dependency resolution and silently drift from pnpm-lock.yaml.
+package-lock.json
+yarn.lock
+bun.lock
