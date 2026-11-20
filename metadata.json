@@ -1,0 +1,6 @@
+{
+  "name": "Первооткрыватели Прикамья",
+  "description": "Интерактивный архитектурный и эксплуатационный портал документации AR-квеста «Первооткрыватели Прикамья» по историческим дорогам Пермского края.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
