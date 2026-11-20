@@ -1,31 +1,76 @@
 # Gitleaks configuration.
 #
 # Purpose: keep secret scanning strict for real credentials while allowing the
-# values that are intentionally committed as placeholders.
+# values that are intentionally committed as documentation examples.
 #
 # Run locally:
 #   docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 \
 #     detect --source=/repo --config=/repo/.gitleaks.toml --no-git --redact -v
+#
+# Design note: every allowance below is scoped as narrowly as it can be — by
+# generated path, or by the literal value. Whole-file exemptions are deliberately
+# avoided, because they would also hide a real key pasted into the same file
+# later. `[[allowlists]]` is used instead of one global block so each exception
+# documents its own reason.
 
 title = "ural"
 
 [extend]
 useDefault = true
 
-[allowlist]
-description = "Placeholders that are not credentials"
-
+# ---------------------------------------------------------------------------
+# 1. Generated output and dependencies are not source.
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "Build artifacts and installed packages"
 paths = [
-  # The example file ships with placeholder values only; it is the documented
-  # template, not a leak. Every entry there is empty or obviously fake.
-  '''^\.env\.example$''',
-  # Test fixtures build synthetic tokens to assert they are redacted. They grant
-  # nothing: the values exist only inside the test process.
-  '''^src/tests/.*\.ts$''',
+  # Compiled bundle: the same demo strings appear in the source files above and
+  # are reviewed there. Scanning minified output only produces duplicates.
+  '''^dist/''',
+  '''^coverage/''',
+  '''^node_modules/''',
 ]
 
+# ---------------------------------------------------------------------------
+# 2. Demo data of the quest simulator.
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "Simulator invitation tokens (fake, format inv-YYYY-MM-<name>-<hex>)"
+# The simulator in `GuidesAndSimulatorSection.tsx` demonstrates redeeming an
+# invitation. These values are fabricated fixtures rendered in the UI; they grant
+# access to nothing and match no real system.
+#
+# The pattern stops at the trailing dash so it also covers the dynamically built
+# token (`'inv-2026-11-quest-' + String(...)`), whose literal prefix has no hex
+# tail for the entropy check to ignore.
 regexes = [
-  # Placeholder tokens from the template and from documentation examples.
-  '''ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789''',
+  '''inv-2026-\d{2}-[a-z]+-''',
+]
+
+# ---------------------------------------------------------------------------
+# 3. Documentation examples.
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "Placeholder API responses in the documentation data"
+# Truncated JWT-shaped and refresh-token-shaped strings used to illustrate the
+# shape of an auth response. Both end in a literal ellipsis, which a real token
+# never does — that is what makes the pattern narrow enough to be safe.
+regexes = [
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.\.\.''',
+  '''rt_[0-9a-f]{8}\.\.\.''',
+]
+
+# ---------------------------------------------------------------------------
+# 4. Test fixtures.
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "Synthetic tokens asserted to be redacted"
+# `gitService.test.ts` builds tokens on purpose to prove they never reach an
+# error message. The values exist only inside the test process.
+paths = [
+  '''^src/tests/.*\.ts$''',
+]
+regexes = [
   '''ghp_TESTSECRETVALUE[0-9A-Z]+''',
+  '''ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789''',
 ]
