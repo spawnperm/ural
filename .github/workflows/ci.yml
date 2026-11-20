@@ -123,7 +123,11 @@ jobs:
       # passes unit tests and still fails the deterministic sandbox on replay, so
       # the only meaningful check runs it for real.
       temporal:
-        image: temporalio/temporal:1.26.0
+        # Pinned by tag, not `latest`. Note the two version lines in this stack:
+        # the Temporal *server* image is 1.10.1 (bundling server 1.32.2), while
+        # the Node *SDK* is 1.26.x. They are independent, and `1.26.0` is not an
+        # image tag — using the SDK version here fails the pull.
+        image: temporalio/temporal:1.10.1
         options: >-
           --health-cmd "temporal operator cluster health"
           --health-interval 10s

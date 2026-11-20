@@ -8,7 +8,10 @@
 # Started by `pnpm run temporal:up`.
 services:
   temporal:
-    image: temporalio/temporal:latest
+    # Pinned by tag, not `latest`. The server image version (1.10.1, bundling
+    # server 1.32.2) is independent of the Node SDK version (1.26.x) — do not
+    # "align" them by using the SDK version, which is not an image tag.
+    image: temporalio/temporal:1.10.1
     container_name: ural-temporal
     command:
       - server
