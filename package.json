@@ -4,8 +4,10 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Портал документации и архитектуры AR-квеста «Первооткрыватели Прикамья»",
+  "packageManager": "pnpm@11.22.0",
   "engines": {
-    "node": ">=22.7.0"
+    "node": ">=22.7.0",
+    "pnpm": ">=11.0.0"
   },
   "scripts": {
     "dev": "tsx server.ts",

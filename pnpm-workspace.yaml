@@ -1,0 +1,25 @@
+# pnpm 11 settings.
+#
+# Most keys that used to live in .npmrc belong here: `pnpm config get` reads
+# .npmrc but `pnpm install` prefers this file for these settings, so keeping them
+# in one place avoids a config that appears set and silently is not.
+
+# `nodeLinker: hoisted` keeps a flat node_modules. pnpm's default symlinked store
+# breaks tooling that resolves packages by walking directories — Vite's dep
+# optimiser and esbuild's native bindings both do.
+nodeLinker: hoisted
+
+# Fail loudly on a Node version the project cannot run, matching `engines`.
+engineStrict: true
+
+# `allowBuilds` is the explicit per-package decision pnpm 11 expects: a dependency
+# does not execute install scripts unless it is listed here. Without the entry
+# pnpm refuses the install outright, which is the intended behaviour — it makes
+# the trust decision visible in review instead of hiding it in a transitive
+# postinstall.
+#
+# esbuild needs its postinstall to place the platform binary (Vite's dep
+# optimiser and tsx both load it); protobufjs ships one too.
+allowBuilds:
+  esbuild: true
+  protobufjs: true
