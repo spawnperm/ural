@@ -9,6 +9,12 @@ import {
   XCircle,
 } from 'lucide-react';
 import { SIMULATOR_QUEST, TROUBLESHOOTING_ROWS } from '../data/projectDocs';
+import {
+  REDEMPTION_WORKFLOW,
+  runRedemption,
+  stateForInvitation,
+  toMermaid,
+} from '../data/redemptionWorkflow';
 import { ResilientImage } from './ResilientImage';
 
 type GuideRoleTab = 'user' | 'content' | 'event' | 'admin';
@@ -74,7 +80,7 @@ export function GuidesAndSimulatorSection() {
     PRESET_INVITATIONS.valid.token
   );
   const [redeemFeedback, setRedeemFeedback] = useState<{
-    code: 'SUCCESS' | 'INVITATION_EXPIRED' | 'INVITATION_REDEEMED' | 'NOT_FOUND';
+    code: string;
     message: string;
   } | null>(null);
 
@@ -140,10 +146,10 @@ export function GuidesAndSimulatorSection() {
         rec.userEmail.toLowerCase() === query
     );
     if (!matchedEntry) {
-      setRedeemFeedback({
-        code: 'NOT_FOUND',
-        message: 'Приглашение с таким токеном или email не найдено.',
-      });
+      // The not-found path is a state in the workflow document, not a branch
+      // here: the message and code come from the same rules the diagram shows.
+      const outcome = runRedemption(REDEMPTION_WORKFLOW, 'notFound');
+      setRedeemFeedback({ code: outcome.code, message: outcome.message });
       return;
     }
     setActiveTokenKey(matchedEntry[0]);
@@ -151,36 +157,30 @@ export function GuidesAndSimulatorSection() {
   };
 
   const handleRedeemInvitation = () => {
-    if (!currentInvitation) return;
-    if (currentInvitation.expired) {
+    // State derivation and outcome both come from `redemptionWorkflow.ts`, so the
+    // diagram in the documentation and the behaviour cannot drift apart.
+    const outcome = runRedemption(
+      REDEMPTION_WORKFLOW,
+      stateForInvitation(currentInvitation ?? null)
+    );
+
+    if (outcome.mutated) {
+      const nowIso = '2026-11-20T11:45:00Z';
+      setInvitations((prev) => ({
+        ...prev,
+        [activeTokenKey]: {
+          ...prev[activeTokenKey],
+          redeemedAt: nowIso,
+        },
+      }));
       setRedeemFeedback({
-        code: 'INVITATION_EXPIRED',
-        message:
-          'INVITATION_EXPIRED: Срок действия приглашения истёк. Погашение недоступно, эскалируйте к Admin.',
-      });
-      return;
-    }
-    if (currentInvitation.redeemedAt) {
-      setRedeemFeedback({
-        code: 'INVITATION_REDEEMED',
-        message:
-          'INVITATION_REDEEMED: Приглашение уже было погашено ранее. Повторная выдача — только через Admin.',
+        code: outcome.code,
+        message: `${outcome.message.replace(/\.$/, '')} (${nowIso}).`,
       });
       return;
     }
 
-    const nowIso = '2026-11-20T11:45:00Z';
-    setInvitations((prev) => ({
-      ...prev,
-      [activeTokenKey]: {
-        ...prev[activeTokenKey],
-        redeemedAt: nowIso,
-      },
-    }));
-    setRedeemFeedback({
-      code: 'SUCCESS',
-      message: `Визит зафиксирован в коллекции visits (${nowIso}). Статус приглашения обновлён.`,
-    });
+    setRedeemFeedback({ code: outcome.code, message: outcome.message });
   };
 
   return (
@@ -533,6 +533,39 @@ export function GuidesAndSimulatorSection() {
               </span>
               <span>POST /items/invitations/&#123;id&#125;/redeem</span>
             </div>
+
+            {/*
+              Rendered from the same document that drives the behaviour, so a
+              reader can compare the picture with what the buttons do. Generating
+              it instead of hand-drawing a diagram is the point.
+            */}
+            <details className="group border border-[#E2DDD4] rounded-xl bg-white overflow-hidden">
+              <summary className="px-4 py-2.5 text-xs font-medium text-[#1C1917] cursor-pointer select-none hover:bg-[#F7F5F0] transition-colors">
+                Схема переходов состояний
+                <span className="ml-1.5 text-[#57534E] font-normal">
+                  — генерируется из {REDEMPTION_WORKFLOW.id} v{REDEMPTION_WORKFLOW.version}
+                </span>
+              </summary>
+              <div className="px-4 pb-4 pt-1">
+                <pre className="text-[11px] leading-relaxed text-[#44403C] bg-[#F7F5F0] border border-[#E2DDD4] rounded-lg p-3 overflow-x-auto">
+                  <code>{toMermaid(REDEMPTION_WORKFLOW)}</code>
+                </pre>
+                <ul className="mt-3 space-y-1 text-[11px] text-[#57534E]">
+                  {REDEMPTION_WORKFLOW.rules.map((rule) => (
+                    <li key={`${rule.from}-${rule.action}`} className="flex gap-2">
+                      <code className="font-mono text-[#1E3A8A] shrink-0">
+                        {rule.from}
+                      </code>
+                      <span aria-hidden="true">→</span>
+                      <code className="font-mono text-[#1C1917] shrink-0">
+                        {rule.to}
+                      </code>
+                      <span className="text-[#57534E]">{rule.code}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </details>
 
             <div className="border border-[#E2DDD4] rounded-xl p-5 bg-[#F7F5F0] space-y-4">
               <div>
