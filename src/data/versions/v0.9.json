@@ -1,0 +1,45 @@
+{
+  "id": "v0.9",
+  "label": "v0.9 (архив · базовая редакция)",
+  "version": "0.9",
+  "status": "Архив (предрелиз)",
+  "date": "2026-10-15",
+  "isCurrent": false,
+  "subtitle": "AR-квест по историческим дорогам Пермского края (базовый стек)",
+  "summary": "Предрелизная редакция документации до включения Traefik, Temporal, Dify, AtomicCMS и Storybook. Описывает базовые 11 контуров на Directus 11, PostgreSQL + PostGIS, NATS JetStream, Garage S3 и Forgejo.",
+  "stats": {
+    "contours": "11 контуров",
+    "collections": "7 коллекций",
+    "roles": "5 ролей RBAC",
+    "slo": "99.5% / мес"
+  },
+  "includedSectionIds": [
+    "overview",
+    "contours",
+    "ddd",
+    "data-model",
+    "api",
+    "rbac",
+    "user-guide",
+    "deployment",
+    "onboarding",
+    "operations",
+    "appendices"
+  ],
+  "changelog": [
+    "Утверждены 11 архитектурных контуров и DDD-карта ограниченных контекстов.",
+    "Добавлены own-фильтры $CURRENT_USER и маскирование поля correct для роли User.",
+    "Зафиксированы целевые показатели SLO (99.5% API, p95 <= 150 мс) и матрица эскалации P1–P3."
+  ],
+  "techStack": [
+    { "component": "AR-клиент", "technology": "Unity + Vuforia", "purpose": "Мобильное приложение" },
+    { "component": "Портал", "technology": "Refine (React)", "purpose": "CRUD-интерфейс" },
+    { "component": "BFF / API", "technology": "Directus 11", "purpose": "CRUD + RBAC + REST" },
+    { "component": "БД", "technology": "PostgreSQL 17 + PostGIS", "purpose": "Данные" },
+    { "component": "Шина событий", "technology": "NATS JetStream", "purpose": "Асинхронные доменные события" },
+    { "component": "Хранилище", "technology": "Garage S3", "purpose": "Медиа (3D, аудио)" },
+    { "component": "Git", "technology": "Forgejo 16", "purpose": "Исходный код" },
+    { "component": "npm-реестр", "technology": "Verdaccio 5", "purpose": "Приватные пакеты" },
+    { "component": "Оркестрация", "technology": "Docker Compose", "purpose": "Локально, WSL2" }
+  ]
+}

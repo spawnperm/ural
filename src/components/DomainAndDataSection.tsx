@@ -9,7 +9,13 @@ import {
 } from '../data/projectDocs';
 import { CopyCodeBlock } from './CopyCodeBlock';
 
-export function DomainAndDataSection() {
+interface DomainAndDataSectionProps {
+  includedSectionIds?: string[];
+}
+
+export function DomainAndDataSection({
+  includedSectionIds,
+}: DomainAndDataSectionProps) {
   const [selectedCollectionName, setSelectedCollectionName] = useState<string>(
     DATA_COLLECTIONS[0].name
   );
@@ -18,9 +24,18 @@ export function DomainAndDataSection() {
     DATA_COLLECTIONS.find((c) => c.name === selectedCollectionName) ??
     DATA_COLLECTIONS[0];
 
+  const showDdd = !includedSectionIds || includedSectionIds.includes('ddd');
+  const showDataModel =
+    !includedSectionIds || includedSectionIds.includes('data-model');
+
+  if (!showDdd && !showDataModel) {
+    return null;
+  }
+
   return (
     <div className="space-y-14">
       {/* Section 03: DDD Context Map */}
+      {showDdd && (
       <section id="ddd" className="space-y-6 scroll-mt-24 pt-6 border-t border-[#E2DDD4]">
         <div className="max-w-3xl">
           <div className="text-xs text-[#57534E] tabular-nums">Раздел 03 · Предметно-ориентированное проектирование</div>
@@ -105,8 +120,10 @@ export function DomainAndDataSection() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Section 04: Data Model */}
+      {showDataModel && (
       <section id="data-model" className="space-y-6 scroll-mt-24 pt-6 border-t border-[#E2DDD4]">
         <div className="max-w-3xl">
           <div className="text-xs text-[#57534E] tabular-nums">Раздел 04 · PostgreSQL + PostGIS</div>
@@ -208,6 +225,7 @@ export function DomainAndDataSection() {
           </ul>
         </div>
       </section>
+      )}
     </div>
   );
 }

@@ -16,10 +16,30 @@ import {
 import { CopyCodeBlock } from './CopyCodeBlock';
 import { GitCommitPushPanel } from './GitCommitPushPanel';
 
-export function DeploymentAndOpsSection() {
+interface DeploymentAndOpsSectionProps {
+  includedSectionIds?: string[];
+}
+
+export function DeploymentAndOpsSection({
+  includedSectionIds,
+}: DeploymentAndOpsSectionProps) {
+  const showDeployment =
+    !includedSectionIds || includedSectionIds.includes('deployment');
+  const showOnboarding =
+    !includedSectionIds || includedSectionIds.includes('onboarding');
+  const showOperations =
+    !includedSectionIds || includedSectionIds.includes('operations');
+  const showAppendices =
+    !includedSectionIds || includedSectionIds.includes('appendices');
+
+  if (!showDeployment && !showOnboarding && !showOperations && !showAppendices) {
+    return null;
+  }
+
   return (
     <div className="space-y-14">
       {/* Section 07: Deployment */}
+      {showDeployment && (
       <section id="deployment" className="space-y-6 scroll-mt-24 pt-6 border-t border-[#E2DDD4]">
         <div className="max-w-3xl">
           <div className="text-xs text-[#57534E] tabular-nums">
@@ -94,8 +114,10 @@ export function DeploymentAndOpsSection() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Section 08: Developer Onboarding */}
+      {showOnboarding && (
       <section id="onboarding" className="space-y-6 scroll-mt-24 pt-6 border-t border-[#E2DDD4]">
         <div className="max-w-3xl">
           <div className="text-xs text-[#57534E] tabular-nums">
@@ -158,8 +180,10 @@ export function DeploymentAndOpsSection() {
 
         <GitCommitPushPanel />
       </section>
+      )}
 
       {/* Section 11: Operations & Monitoring */}
+      {showOperations && (
       <section id="operations" className="space-y-6 scroll-mt-24 pt-6 border-t border-[#E2DDD4]">
         <div className="max-w-3xl">
           <div className="text-xs text-[#57534E] tabular-nums">
@@ -255,8 +279,10 @@ export function DeploymentAndOpsSection() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Appendices A–C */}
+      {showAppendices && (
       <section id="appendices" className="space-y-6 scroll-mt-24 pt-6 border-t border-[#E2DDD4]">
         <div className="max-w-3xl">
           <div className="text-xs text-[#57534E]">Приложения A, B, C</div>
@@ -312,6 +338,7 @@ export function DeploymentAndOpsSection() {
           </div>
         </div>
       </section>
+      )}
     </div>
   );
 }

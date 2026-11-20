@@ -16,9 +16,12 @@ import { SidebarNav } from './components/SidebarNav';
 import { StackExtensionAndAdrSection } from './components/StackExtensionAndAdrSection';
 import { TableOfContents } from './components/TableOfContents';
 import { TopBar } from './components/TopBar';
+import { VersionSelectorBar } from './components/VersionSelectorBar';
 import { AudienceKey, DOC_META, DOC_SECTIONS } from './data/projectDocs';
+import { DOC_VERSIONS } from './data/versions';
 
 export default function App() {
+  const [selectedVersionId, setSelectedVersionId] = useState<string>('v1.0');
   const [activeSection, setActiveSection] = useState<string>('overview');
   const [activeSubSection, setActiveSubSection] = useState<string>('overview-mechanics');
   const [scrollProgress, setScrollProgress] = useState<number>(0);
@@ -28,13 +31,20 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [gitModalOpen, setGitModalOpen] = useState<boolean>(false);
 
+  const selectedVersion =
+    DOC_VERSIONS.find((v) => v.id === selectedVersionId) ?? DOC_VERSIONS[0];
+
   useEffect(() => {
-    const sectionIds = DOC_SECTIONS.map((s) => s.id);
+    const allowedIds = new Set(selectedVersion.includedSectionIds);
+    const activeDocSections = DOC_SECTIONS.filter((s) => allowedIds.has(s.id));
+    const sectionIds = activeDocSections.map((s) => s.id);
     const sectionEls = sectionIds
       .map((id) => document.getElementById(id))
       .filter((el): el is HTMLElement => el !== null);
 
-    const subIds = DOC_SECTIONS.flatMap((s) => s.subsections.map((sub) => sub.id));
+    const subIds = activeDocSections.flatMap((s) =>
+      s.subsections.map((sub) => sub.id)
+    );
     const subEls = subIds
       .map((id) => document.getElementById(id))
       .filter((el): el is HTMLElement => el !== null);
@@ -85,7 +95,17 @@ export default function App() {
       subObserver.disconnect();
       window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [selectedVersion]);
+
+  const handleSelectVersion = (versionId: string) => {
+    const nextVersion =
+      DOC_VERSIONS.find((v) => v.id === versionId) ?? DOC_VERSIONS[0];
+    setSelectedVersionId(nextVersion.id);
+    if (!nextVersion.includedSectionIds.includes(activeSection)) {
+      setActiveSection('overview');
+      setActiveSubSection('overview-mechanics');
+    }
+  };
 
   const handleJumpToSimulator = () => {
     const el = document.getElementById('quest-simulator');
@@ -115,6 +135,11 @@ export default function App() {
         onJumpToSimulator={handleJumpToSimulator}
       />
 
+      <VersionSelectorBar
+        selectedVersion={selectedVersion}
+        onSelectVersion={handleSelectVersion}
+      />
+
       {/* Mobile Sidebar Drawer */}
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 top-16 z-20 bg-[#F7F5F0] border-t border-[#E2DDD4] overflow-y-auto p-6">
@@ -125,6 +150,7 @@ export default function App() {
             onSearchChange={setSearchQuery}
             audienceFilter={audienceFilter}
             onAudienceChange={setAudienceFilter}
+            includedSectionIds={selectedVersion.includedSectionIds}
             onSelectSection={(secId, subId) => {
               handleSelectNavigation(secId, subId);
               setMobileMenuOpen(false);
@@ -143,6 +169,7 @@ export default function App() {
             onSearchChange={setSearchQuery}
             audienceFilter={audienceFilter}
             onAudienceChange={setAudienceFilter}
+            includedSectionIds={selectedVersion.includedSectionIds}
             onSelectSection={handleSelectNavigation}
           />
         </aside>
@@ -153,22 +180,36 @@ export default function App() {
             activeSection={activeSection}
             activeSubSection={activeSubSection}
             scrollProgress={scrollProgress}
+            includedSectionIds={selectedVersion.includedSectionIds}
             onSelectAnchor={handleSelectNavigation}
           />
           <HeroOverview
             searchQuery={searchQuery}
+            versionSnapshot={selectedVersion}
             onSelectContour={handleSelectContour}
             onOpenGitModal={() => setGitModalOpen(true)}
           />
-          <ContoursExplorer
-            selectedContourNum={selectedContourNum}
-            onSelectContour={setSelectedContourNum}
+          {selectedVersion.includedSectionIds.includes('contours') && (
+            <ContoursExplorer
+              selectedContourNum={selectedContourNum}
+              onSelectContour={setSelectedContourNum}
+            />
+          )}
+          <DomainAndDataSection
+            includedSectionIds={selectedVersion.includedSectionIds}
           />
-          <DomainAndDataSection />
-          <ApiAndRbacSection />
-          <GuidesAndSimulatorSection />
-          <DeploymentAndOpsSection />
-          <StackExtensionAndAdrSection />
+          <ApiAndRbacSection
+            includedSectionIds={selectedVersion.includedSectionIds}
+          />
+          {selectedVersion.includedSectionIds.includes('user-guide') && (
+            <GuidesAndSimulatorSection />
+          )}
+          <DeploymentAndOpsSection
+            includedSectionIds={selectedVersion.includedSectionIds}
+          />
+          {selectedVersion.includedSectionIds.includes('extended-stack') && (
+            <StackExtensionAndAdrSection />
+          )}
         </main>
 
         <TableOfContents
@@ -176,6 +217,7 @@ export default function App() {
           activeSection={activeSection}
           activeSubSection={activeSubSection}
           scrollProgress={scrollProgress}
+          includedSectionIds={selectedVersion.includedSectionIds}
           onSelectAnchor={handleSelectNavigation}
         />
       </div>
@@ -210,11 +252,11 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-2 tabular-nums">
             <span className="font-semibold text-[#1C1917]">{DOC_META.title}</span>
             <span aria-hidden="true">·</span>
-            <span>{DOC_META.subtitle}</span>
+            <span>{selectedVersion.subtitle}</span>
             <span aria-hidden="true">·</span>
-            <span>Версия {DOC_META.version}</span>
+            <span>Версия {selectedVersion.version}</span>
             <span aria-hidden="true">·</span>
-            <span>{DOC_META.date}</span>
+            <span>{selectedVersion.date}</span>
           </div>
           <div className="flex items-center gap-5">
             <a href="#overview" className="hover:text-[#1C1917] transition-colors">

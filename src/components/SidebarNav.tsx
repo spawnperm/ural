@@ -9,6 +9,7 @@ import {
 interface SidebarNavProps {
   activeSection: string;
   activeSubSection: string;
+  includedSectionIds?: string[];
   searchQuery: string;
   onSearchChange: (value: string) => void;
   audienceFilter: AudienceKey;
@@ -27,6 +28,7 @@ const AUDIENCE_OPTIONS: { key: AudienceKey; label: string }[] = [
 export function SidebarNav({
   activeSection,
   activeSubSection,
+  includedSectionIds,
   searchQuery,
   onSearchChange,
   audienceFilter,
@@ -50,6 +52,8 @@ export function SidebarNav({
   const isFiltering = Boolean(normalizedQuery) || audienceFilter !== 'all';
 
   const filteredSections = DOC_SECTIONS.filter((sec) => {
+    const matchesVersion =
+      !includedSectionIds || includedSectionIds.includes(sec.id);
     const matchesAudience =
       audienceFilter === 'all' || sec.audienceKeys.includes(audienceFilter);
     const matchesSearch =
@@ -60,7 +64,7 @@ export function SidebarNav({
       sec.subsections.some((sub) =>
         sub.label.toLowerCase().includes(normalizedQuery)
       );
-    return matchesAudience && matchesSearch;
+    return matchesVersion && matchesAudience && matchesSearch;
   });
 
   const toggleCategory = (catId: string) => {

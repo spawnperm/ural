@@ -38,6 +38,7 @@ export function GitCommitPushPanel() {
   const [feedback, setFeedback] = useState<{
     type: 'success' | 'error';
     text: string;
+    commitHash?: string;
   } | null>(null);
 
   const fetchStatus = useCallback(async () => {
@@ -85,8 +86,9 @@ export function GitCommitPushPanel() {
       setFeedback({
         type: 'success',
         text: data.committed
-          ? `Изменения зафиксированы${shortHash} и отправлены в ветку ${data.branch}.`
-          : `Новых незафиксированных изменений нет — ветка ${data.branch} синхронизирована с удалённым репозиторием.`,
+          ? `Изменения зафиксированы${shortHash} и отправлены на GitHub в ветку ${data.branch}.`
+          : `Новых незафиксированных изменений нет — ветка ${data.branch} актуальна на GitHub.`,
+        commitHash: data.commit?.hash,
       });
     } catch (err) {
       setFeedback({
@@ -251,7 +253,19 @@ export function GitCommitPushPanel() {
                 ) : (
                   <XCircle className="w-4 h-4 text-[#DC2626] shrink-0 mt-0.5" />
                 )}
-                <span className="leading-relaxed">{feedback.text}</span>
+                <div className="space-y-1 leading-relaxed">
+                  <div>{feedback.text}</div>
+                  {feedback.type === 'success' && feedback.commitHash && status?.remoteUrl.includes('github.com') && (
+                    <a
+                      href={`${status.remoteUrl.replace(/\.git$/, '')}/commit/${feedback.commitHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block font-mono underline text-[#14532D] hover:text-[#052E16]"
+                    >
+                      Открыть коммит {feedback.commitHash} на GitHub
+                    </a>
+                  )}
+                </div>
               </div>
             )}
           </div>

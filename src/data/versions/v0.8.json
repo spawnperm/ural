@@ -1,0 +1,36 @@
+{
+  "id": "v0.8",
+  "label": "v0.8 (архив · ранний прототип)",
+  "version": "0.8",
+  "status": "Архив (ранний черновик)",
+  "date": "2026-09-01",
+  "isCurrent": false,
+  "subtitle": "Первичная спецификация AR-маршрутов «Семён Дежнёв»",
+  "summary": "Ранняя сентябрьская редакция архитектуры запуска в Осе. Включала базовый клиент Unity + Vuforia, Directus, PostgreSQL и объектное хранилище без отдельного портала Event Manager и аудита в NATS.",
+  "stats": {
+    "contours": "8 контуров",
+    "collections": "5 коллекций",
+    "roles": "3 роли RBAC",
+    "slo": "99.0% / мес"
+  },
+  "includedSectionIds": [
+    "overview",
+    "contours",
+    "data-model",
+    "api",
+    "user-guide",
+    "deployment"
+  ],
+  "changelog": [
+    "Первоначальная модель данных из 5 коллекций (без invitations и visits).",
+    "Запуск пилотного персонажа сентября — «Семён Дежнёв» (Оса, музей).",
+    "Базовое хранение GLB-моделей и аудио-приветствий в объектном хранилище."
+  ],
+  "techStack": [
+    { "component": "AR-клиент", "technology": "Unity + Vuforia", "purpose": "Мобильное приложение (iOS/Android)" },
+    { "component": "BFF / Админка", "technology": "Directus 10", "purpose": "Управление персонажами и вопросами" },
+    { "component": "БД", "technology": "PostgreSQL 16 + PostGIS", "purpose": "Основные таблицы и геометрия" },
+    { "component": "Хранилище", "technology": "MinIO S3", "purpose": "3D-модели и маркеры календаря" },
+    { "component": "Оркестрация", "technology": "Docker Compose", "purpose": "Локальный стенд разработчика" }
+  ]
+}

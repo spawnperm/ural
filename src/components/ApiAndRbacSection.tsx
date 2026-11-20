@@ -20,7 +20,13 @@ const SIM_ROLES: SimRole[] = [
   'Admin',
 ];
 
-export function ApiAndRbacSection() {
+interface ApiAndRbacSectionProps {
+  includedSectionIds?: string[];
+}
+
+export function ApiAndRbacSection({
+  includedSectionIds,
+}: ApiAndRbacSectionProps) {
   const [simRole, setSimRole] = useState<SimRole>('User');
   const [selectedEndpointId, setSelectedEndpointId] = useState<string>(
     REST_ENDPOINTS[4].id
@@ -66,9 +72,17 @@ export function ApiAndRbacSection() {
         },
       };
 
+  const showApi = !includedSectionIds || includedSectionIds.includes('api');
+  const showRbac = !includedSectionIds || includedSectionIds.includes('rbac');
+
+  if (!showApi && !showRbac) {
+    return null;
+  }
+
   return (
     <div className="space-y-14">
       {/* Section 05: API Contracts */}
+      {showApi && (
       <section id="api" className="space-y-6 scroll-mt-24 pt-6 border-t border-[#E2DDD4]">
         <div className="max-w-3xl">
           <div className="text-xs text-[#57534E] tabular-nums">
@@ -298,8 +312,10 @@ export function ApiAndRbacSection() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Section 06: RBAC Matrix */}
+      {showRbac && (
       <section id="rbac" className="space-y-6 scroll-mt-24 pt-6 border-t border-[#E2DDD4]">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="max-w-2xl">
@@ -410,6 +426,7 @@ export function ApiAndRbacSection() {
           </ul>
         </div>
       </section>
+      )}
     </div>
   );
 }

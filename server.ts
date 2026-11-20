@@ -99,8 +99,20 @@ async function startServer() {
       let committed = false;
       if (currentStatus.changes.length > 0) {
         await runGit(['add', '-A']);
-        await runGit(['commit', '-m', commitMessage]);
-        committed = true;
+        await runGit(['reset', '-q', '--', '.env', '.env.local']).catch(() => undefined);
+        const stagedCheck = await runGit(['diff', '--cached', '--name-only']);
+        if (stagedCheck.stdout.trim().length > 0) {
+          await runGit([
+            '-c',
+            `user.name=${process.env.GIT_USER_NAME || 'spawnperm'}`,
+            '-c',
+            `user.email=${process.env.GIT_USER_EMAIL || 'spawnperm@gmail.com'}`,
+            'commit',
+            '-m',
+            commitMessage,
+          ]);
+          committed = true;
+        }
       }
 
       const token = process.env.GITHUB_TOKEN?.trim();

@@ -1,0 +1,49 @@
+{
+  "id": "v1.0",
+  "label": "v1.0 (текущая)",
+  "version": "1.0",
+  "status": "Готов к внутреннему ревью",
+  "date": "2026-11-20",
+  "isCurrent": true,
+  "subtitle": "AR-квест по историческим дорогам Пермского края",
+  "summary": "Актуальная спецификация системы: 11 архитектурных контуров, Directus 11 BFF, PostGIS, NATS JetStream, Garage S3, RBAC-матрица, а также расширенный стек (Traefik, Temporal, Dify, AtomicCMS, Docusaurus, Storybook, Zod) и ADR-01 по EmDash.",
+  "stats": {
+    "contours": "11 контуров",
+    "collections": "7 коллекций",
+    "roles": "5 ролей RBAC",
+    "slo": "99.5% / мес"
+  },
+  "includedSectionIds": [
+    "overview",
+    "contours",
+    "ddd",
+    "data-model",
+    "api",
+    "rbac",
+    "user-guide",
+    "deployment",
+    "onboarding",
+    "operations",
+    "appendices",
+    "extended-stack"
+  ],
+  "changelog": [
+    "Добавлен раздел 12: интеграция Traefik, Zod, Temporal, Dify, AtomicCMS, Docusaurus и Storybook.",
+    "Включено архитектурное решение ADR-01 с оценкой применимости EmDash.",
+    "Добавлены интерактивный валидатор схем Zod и симулятор AR-квеста с погашением QR."
+  ],
+  "techStack": [
+    { "component": "AR-клиент", "technology": "Unity + Vuforia", "purpose": "Мобильное приложение" },
+    { "component": "Портал и UI-кит", "technology": "Refine (React) + Storybook", "purpose": "CRUD-интерфейс и каталог компонентов" },
+    { "component": "Edge / Ingress", "technology": "Traefik v3", "purpose": "Reverse proxy, TLS и маршрутизация сервисов" },
+    { "component": "BFF / Контент", "technology": "Directus 11 + AtomicCMS", "purpose": "RBAC-шлюз БД и графовый слой контента" },
+    { "component": "БД", "technology": "PostgreSQL 17 + PostGIS", "purpose": "Данные и геометрия точек карты" },
+    { "component": "Шина и оркестрация", "technology": "NATS JetStream + Temporal", "purpose": "События и долгоживущие саги квестов" },
+    { "component": "AI-пайплайны", "technology": "Dify (LLMOps / RAG)", "purpose": "Черновики биографий, вопросов и подсказок" },
+    { "component": "Контракты типов", "technology": "Zod (@perm-krai/shared-types)", "purpose": "Runtime-валидация REST, NATS и форм" },
+    { "component": "Хранилище", "technology": "Garage S3", "purpose": "Медиа (3D, аудио, маркеры, QR)" },
+    { "component": "Документация", "technology": "Docusaurus 3", "purpose": "Версионируемый портал документации (docs)" },
+    { "component": "Git / npm", "technology": "Forgejo 16 + Verdaccio 5", "purpose": "Исходный код, CI и приватные пакеты" },
+    { "component": "Оркестрация среды", "technology": "Docker Compose", "purpose": "Локально, WSL2" }
+  ]
+}

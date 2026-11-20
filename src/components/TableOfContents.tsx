@@ -6,6 +6,7 @@ interface TableOfContentsProps {
   variant: 'mobile' | 'desktop';
   activeSection: string;
   activeSubSection: string;
+  includedSectionIds?: string[];
   scrollProgress: number;
   onSelectAnchor: (sectionId: string, subId?: string) => void;
 }
@@ -14,13 +15,18 @@ export function TableOfContents({
   variant,
   activeSection,
   activeSubSection,
+  includedSectionIds,
   scrollProgress,
   onSelectAnchor,
 }: TableOfContentsProps) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
 
+  const visibleSections = includedSectionIds
+    ? DOC_SECTIONS.filter((s) => includedSectionIds.includes(s.id))
+    : DOC_SECTIONS;
+
   const currentSection =
-    DOC_SECTIONS.find((s) => s.id === activeSection) ?? DOC_SECTIONS[0];
+    visibleSections.find((s) => s.id === activeSection) ?? visibleSections[0];
 
   if (variant === 'mobile') {
     return (
@@ -110,7 +116,7 @@ export function TableOfContents({
           </div>
 
           <ul className="space-y-2.5 text-xs">
-            {DOC_SECTIONS.map((sec) => {
+            {visibleSections.map((sec) => {
               const isCurrentSec = activeSection === sec.id;
               return (
                 <li key={sec.id} className="space-y-1">

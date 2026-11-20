@@ -3,21 +3,22 @@ import { ArrowRight, ArrowUpRight, UploadCloud } from 'lucide-react';
 import {
   ARCHITECTURE_NODES,
   CONVENTIONS,
-  DOC_META,
   GLOSSARY_ITEMS,
   SYSTEM_USERS,
-  TECH_STACK,
 } from '../data/projectDocs';
+import { DocVersionSnapshot } from '../data/versions';
 import { ResilientImage } from './ResilientImage';
 
 interface HeroOverviewProps {
   searchQuery: string;
+  versionSnapshot: DocVersionSnapshot;
   onSelectContour: (contourNum: number) => void;
   onOpenGitModal: () => void;
 }
 
 export function HeroOverview({
   searchQuery,
+  versionSnapshot,
   onSelectContour,
   onOpenGitModal,
 }: HeroOverviewProps) {
@@ -49,11 +50,11 @@ export function HeroOverview({
             <div className="flex flex-wrap items-center gap-2 text-xs text-[#57534E] tabular-nums">
               <span>Документация проекта</span>
               <span aria-hidden="true">·</span>
-              <span>Версия {DOC_META.version}</span>
+              <span>Версия {versionSnapshot.version}</span>
               <span aria-hidden="true">·</span>
-              <span>{DOC_META.status}</span>
+              <span>{versionSnapshot.status}</span>
               <span aria-hidden="true">·</span>
-              <span>{DOC_META.date}</span>
+              <span>{versionSnapshot.date}</span>
             </div>
 
             <h1 className="font-display text-3xl sm:text-4xl lg:text-[42px] leading-[1.15] font-semibold text-[#1C1917] [text-wrap:balance]">
@@ -61,9 +62,7 @@ export function HeroOverview({
             </h1>
 
             <p className="text-base sm:text-lg text-[#44403C] max-w-2xl leading-relaxed">
-              {DOC_META.subtitle}. Система совмещает мобильную AR-игру по историческим маршрутам с
-              единым административным порталом организаторов мероприятий на базе Directus, NATS
-              JetStream, PostgreSQL + PostGIS и Garage S3.
+              {versionSnapshot.subtitle}. {versionSnapshot.summary}
             </p>
           </div>
 
@@ -107,28 +106,28 @@ export function HeroOverview({
         <div className="p-5">
           <div className="text-xs text-[#57534E]">Архитектурная модель</div>
           <div className="mt-1 font-display text-2xl font-semibold text-[#1C1917] tabular-nums">
-            11 контуров
+            {versionSnapshot.stats.contours}
           </div>
           <div className="mt-1 text-xs text-[#78716C]">От AR-клиента до наблюдаемости</div>
         </div>
         <div className="p-5">
           <div className="text-xs text-[#57534E]">Доменная схема (PostgreSQL)</div>
           <div className="mt-1 font-display text-2xl font-semibold text-[#1C1917] tabular-nums">
-            7 коллекций
+            {versionSnapshot.stats.collections}
           </div>
           <div className="mt-1 text-xs text-[#78716C]">PostGIS, JSON-вопросы и S3-ассеты</div>
         </div>
         <div className="p-5">
           <div className="text-xs text-[#57534E]">Контроль доступа</div>
           <div className="mt-1 font-display text-2xl font-semibold text-[#1C1917] tabular-nums">
-            5 ролей RBAC
+            {versionSnapshot.stats.roles}
           </div>
           <div className="mt-1 text-xs text-[#78716C]">Policy, own-фильтры, маскирование</div>
         </div>
         <div className="p-5">
           <div className="text-xs text-[#57534E]">Целевой SLO Directus API</div>
           <div className="mt-1 font-display text-2xl font-semibold text-[#1C1917] tabular-nums">
-            99.5% / мес
+            {versionSnapshot.stats.slo}
           </div>
           <div className="mt-1 text-xs text-[#78716C]">p95 ≤ 150 мс · события ≤ 10 с</div>
         </div>
@@ -419,7 +418,7 @@ export function HeroOverview({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EBE6DF]">
-                {TECH_STACK.map((row) => (
+                {versionSnapshot.techStack.map((row) => (
                   <tr key={row.component} className="hover:bg-[#FAF8F5]">
                     <td className="py-2.5 px-4 font-medium text-[#1C1917] whitespace-nowrap">
                       {row.component}
