@@ -59,11 +59,30 @@ function stripComments(source) {
 }
 
 const readPattern = /process\.env\.([A-Z_][A-Z0-9_]*)/g;
+
+/**
+ * Reads through a parameter rather than `process.env`.
+ *
+ * `providerConfigFromEnv(env = process.env)` does exactly that: the function
+ * receives an environment bag so tests can pass one. Scanning only for
+ * `process.env.X` would report every such variable as "documented but never
+ * read" — a false positive that would push someone to delete correct docs, or to
+ * stop trusting the gate.
+ *
+ * The pattern handles the two idioms in this codebase: `env.KEY` and
+ * `env['KEY']`, where `env` is any identifier ending in `env`/`Env`.
+ */
+const paramEnvPattern = /\b\w*[eE]nv\b(?:\.([A-Z_][A-Z0-9_]*)|\['([A-Z_][A-Z0-9_]*)'\])/g;
+
 const used = new Set();
 for (const file of files) {
   const source = stripComments(fs.readFileSync(file, 'utf8'));
   for (const match of source.matchAll(readPattern)) {
     if (!TOOLING_ONLY.has(match[1])) used.add(match[1]);
+  }
+  for (const match of source.matchAll(paramEnvPattern)) {
+    const name = match[1] ?? match[2];
+    if (name && !TOOLING_ONLY.has(name)) used.add(name);
   }
 }
 

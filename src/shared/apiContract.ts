@@ -65,9 +65,17 @@ export interface HealthResponse {
   timestamp: string;
 }
 
+/** Answer from the documentation assistant. */
+export interface AssistantAnswerResponse {
+  ok: true;
+  /** Markdown-free plain text, grounded in the portal's own content. */
+  answer: string;
+}
+
 /** Route table, kept next to the types so the two cannot drift apart. */
 export const API_ROUTES = {
   health: '/api/health',
   gitStatus: '/api/git/status',
   gitCommitPush: '/api/git/commit-push',
+  assistantAsk: '/api/assistant/ask',
 } as const;

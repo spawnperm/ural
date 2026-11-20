@@ -43,3 +43,26 @@ export const commitPushBodySchema = z.strictObject(
 );
 
 export type CommitPushBody = z.infer<typeof commitPushBodySchema>;
+
+/** Maximum length of a question to the documentation assistant. */
+export const QUESTION_MAX_LENGTH = 1000;
+
+/**
+ * Request body for `POST /api/assistant/ask`.
+ *
+ * The question length is bounded because it goes straight to a paid API: an
+ * unbounded field is an invitation to bill amplification.
+ */
+export const assistantAskSchema = z.strictObject(
+  {
+    question: z
+      .string({ error: 'Вопрос должен быть строкой.' })
+      .min(2, { error: 'Вопрос слишком короткий.' })
+      .max(QUESTION_MAX_LENGTH, {
+        error: `Вопрос длиннее ${QUESTION_MAX_LENGTH} символов.`,
+      }),
+  },
+  { error: 'Тело запроса должно быть JSON-объектом.' }
+);
+
+export type AssistantAskBody = z.infer<typeof assistantAskSchema>;

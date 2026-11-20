@@ -26,6 +26,8 @@
     "temporal:down": "docker compose -f docker-compose.temporal.yml down"
   },
   "dependencies": {
+    "@mastra/core": "^1.85.0",
+    "@scalar/express-api-reference": "^0.10.39",
     "@tailwindcss/vite": "^4.3.3",
     "@temporalio/activity": "^1.26.0",
     "@temporalio/client": "^1.26.0",

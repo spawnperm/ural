@@ -15,11 +15,14 @@
  */
 
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
+import { apiReference } from '@scalar/express-api-reference';
 import { type GitService } from './gitService.ts';
 import { createGitRouter } from './gitRouter.ts';
 import { createRequestIdMiddleware } from './requestId.ts';
 import { createSecurityHeadersMiddleware } from './securityHeaders.ts';
 import { sendProblem } from './problemDetails.ts';
+import { buildOpenApiDocument } from './openapi.ts';
+import { createAssistantRouter } from './assistantRouter.ts';
 import { type HealthResponse } from '../shared/apiContract.ts';
 
 export interface AppOptions {
@@ -71,6 +74,33 @@ export function createApp(options: AppOptions): Express {
   });
 
   app.use('/api/git', createGitRouter(git));
+  app.use('/api/assistant', createAssistantRouter());
+
+  /*
+   * API reference, served from the generated document.
+   *
+   * Registered *before* the `/api` catch-all so `/api/docs` is not swallowed by
+   * the 404 handler, and after the security middleware so the page carries the
+   * same headers as the rest of the app.
+   *
+   * The spec is built per request rather than cached at import time: it is cheap
+   * (pure object construction) and keeps `APP_VERSION` honest if the process'
+   * environment changes.
+   */
+  const openApiDocument = buildOpenApiDocument();
+  app.get('/api/openapi.json', (_req, res) => {
+    res.json(openApiDocument);
+  });
+  app.use(
+    '/api/docs',
+    apiReference({
+      // Points at this server's own endpoint, so the page works on any host
+      // without a hardcoded absolute URL.
+      url: '/api/openapi.json',
+      pageTitle: 'ural — API портала документации',
+      theme: 'default',
+    })
+  );
 
   // Any other /api path is a 404 in problem+json, not the SPA shell. Serving
   // index.html for an unknown API route is the classic way to turn a typo in a

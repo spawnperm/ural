@@ -214,3 +214,108 @@ describe('unknown API routes', () => {
     assert.equal(body.status, 404);
   });
 });
+
+describe('GET /api/openapi.json', () => {
+  let server: TestServer;
+  before(async () => {
+    server = await startTestServer();
+  });
+  after(async () => {
+    await server.close();
+  });
+
+  it('serves an OpenAPI 3.1 document', async () => {
+    const res = await fetch(`${server.baseUrl}/api/openapi.json`);
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { openapi: string; paths: Record<string, unknown> };
+    assert.equal(body.openapi, '3.1.0');
+    assert.ok(Object.keys(body.paths).length >= 4);
+  });
+});
+
+describe('GET /api/docs', () => {
+  let server: TestServer;
+  before(async () => {
+    server = await startTestServer();
+  });
+  after(async () => {
+    await server.close();
+  });
+
+  it('serves the Scalar reference page', async () => {
+    const res = await fetch(`${server.baseUrl}/api/docs`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type') ?? '', /text\/html/);
+    const html = await res.text();
+    // The page must point the viewer at this server's own spec.
+    assert.match(html, /\/api\/openapi\.json/);
+  });
+});
+
+describe('POST /api/assistant/ask', () => {
+  let server: TestServer;
+  before(async () => {
+    server = await startTestServer();
+  });
+  after(async () => {
+    await server.close();
+  });
+
+  it('rejects a body without a question', async () => {
+    const res = await fetch(`${server.baseUrl}${API_ROUTES.assistantAsk}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    assert.equal(res.status, 400);
+    assert.match(res.headers.get('content-type') ?? '', /application\/problem\+json/);
+    const body = (await res.json()) as { details: Array<{ field: string }> };
+    assert.equal(body.details[0]?.field, 'body.question');
+  });
+
+  it('rejects a question that is too short', async () => {
+    const res = await fetch(`${server.baseUrl}${API_ROUTES.assistantAsk}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ question: 'a' }),
+    });
+    assert.equal(res.status, 400);
+  });
+
+  it('rejects an over-long question', async () => {
+    const res = await fetch(`${server.baseUrl}${API_ROUTES.assistantAsk}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ question: 'x'.repeat(1001) }),
+    });
+    assert.equal(res.status, 400);
+  });
+
+  it('rejects unknown fields', async () => {
+    const res = await fetch(`${server.baseUrl}${API_ROUTES.assistantAsk}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ question: 'что такое RBAC', model: 'gpt' }),
+    });
+    assert.equal(res.status, 400);
+  });
+
+  it('explains that it is unconfigured instead of failing obscurely', async () => {
+    // Without LLM_API_KEY the endpoint must say so. The test runs in an
+    // environment without the key, which is exactly the deployed default.
+    const saved = process.env.LLM_API_KEY;
+    delete process.env.LLM_API_KEY;
+    try {
+      const res = await fetch(`${server.baseUrl}${API_ROUTES.assistantAsk}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ question: 'что такое RBAC' }),
+      });
+      assert.equal(res.status, 503);
+      const body = (await res.json()) as { details?: { requiredEnv?: string[] } };
+      assert.deepEqual(body.details?.requiredEnv, ['LLM_API_KEY']);
+    } finally {
+      if (saved !== undefined) process.env.LLM_API_KEY = saved;
+    }
+  });
+});
