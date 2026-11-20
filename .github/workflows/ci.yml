@@ -118,24 +118,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: quality
-    services:
-      # A real server, not a mock. The whole risk in workflow code is that it
-      # passes unit tests and still fails the deterministic sandbox on replay, so
-      # the only meaningful check runs it for real.
-      temporal:
-        # Pinned by tag, not `latest`. Note the two version lines in this stack:
-        # the Temporal *server* image is 1.10.1 (bundling server 1.32.2), while
-        # the Node *SDK* is 1.26.x. They are independent, and `1.26.0` is not an
-        # image tag — using the SDK version here fails the pull.
-        image: temporalio/temporal:1.10.1
-        options: >-
-          --health-cmd "temporal operator cluster health"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 12
-          --health-start-period 25s
-        ports:
-          - 7233:7233
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -151,6 +133,36 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Start Temporal server
+        # A real server, not a mock: the whole risk in workflow code is that it
+        # passes unit tests and still fails the deterministic sandbox on replay.
+        #
+        # Deliberately *not* a `services:` block. GitHub's service containers
+        # cannot override the image's command, and `temporalio/temporal` has no
+        # default entry command — the service starts, exits immediately, and
+        # fails its health check before the job can do anything. An explicit
+        # `docker run` with `server start-dev` is the only way to give it one.
+        #
+        # Tag pinned: the server image (1.10.1) and the Node SDK (1.26.x) are
+        # independently versioned, and `1.26.0` is not an image tag.
+        run: |
+          docker run -d --name temporal \
+            -p 127.0.0.1:7233:7233 -p 127.0.0.1:8233:8233 \
+            temporalio/temporal:1.10.1 \
+            server start-dev --ip 0.0.0.0 --db-filename /tmp/temporal.db
+
+          for i in $(seq 1 60); do
+            if docker exec temporal temporal operator cluster health 2>/dev/null | grep -q SERVING; then
+              echo "Temporal is SERVING after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "::error::Temporal did not become ready in 60s"
+          docker logs temporal | tail -40
+          exit 1
 
       - name: Start worker
         env:
@@ -186,12 +198,19 @@ jobs:
         if: failure()
         run: tail -60 /tmp/worker.log
 
-      - name: Stop worker
+      - name: Temporal logs
+        if: failure()
+        run: docker logs temporal 2>&1 | tail -40
+
+      - name: Cleanup
         if: always()
         run: |
           if [ -f /tmp/worker.pid ]; then
             kill "$(cat /tmp/worker.pid)" 2>/dev/null || true
           fi
+          # Explicitly started, so explicitly removed: Actions only tears down
+          # service containers automatically.
+          docker rm -f temporal 2>/dev/null || true
 
   security:
     name: Secret & dependency scan
