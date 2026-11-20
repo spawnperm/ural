@@ -92,7 +92,7 @@ export function StackExtensionAndAdrSection() {
       </div>
 
       {/* Tool Explorer */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div id="stack-tools" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start scroll-mt-24">
         <div className="lg:col-span-5 bg-white border border-[#E2DDD4] rounded-xl overflow-hidden divide-y divide-[#EBE6DF]">
           {EXTENDED_STACK_ITEMS.map((item) => {
             const isActive = item.tool === activeTool.tool;
@@ -146,7 +146,7 @@ export function StackExtensionAndAdrSection() {
       </div>
 
       {/* Live Zod Contract Sandbox */}
-      <div className="bg-white border border-[#E2DDD4] rounded-xl p-6 space-y-4">
+      <div id="stack-zod" className="bg-white border border-[#E2DDD4] rounded-xl p-6 space-y-4 scroll-mt-24">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E2DDD4] pb-4">
           <div>
             <h3 className="text-base font-semibold text-[#1C1917]">
@@ -223,7 +223,7 @@ export function StackExtensionAndAdrSection() {
       </div>
 
       {/* ADR-01: EmDash Evaluation */}
-      <div className="bg-white border border-[#E2DDD4] rounded-xl overflow-hidden">
+      <div id="stack-adr-emdash" className="bg-white border border-[#E2DDD4] rounded-xl overflow-hidden scroll-mt-24">
         <div className="p-6 border-b border-[#E2DDD4] space-y-2">
           <div className="text-xs text-[#57534E]">
             ADR-01 · Архитектурное решение по выбору CMS

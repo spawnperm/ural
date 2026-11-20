@@ -123,7 +123,7 @@ export function HeroOverview({ searchQuery, onSelectContour }: HeroOverviewProps
 
       {/* 0.1 Назначение, 0.3 Глоссарий, 0.4 Соглашения */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-5 bg-white border border-[#E2DDD4] rounded-xl p-6 space-y-6">
+        <div id="overview-mechanics" className="lg:col-span-5 bg-white border border-[#E2DDD4] rounded-xl p-6 space-y-6 scroll-mt-24">
           <div>
             <h2 className="font-display text-xl font-semibold text-[#1C1917]">
               0. О документе и механике квеста
@@ -173,7 +173,7 @@ export function HeroOverview({ searchQuery, onSelectContour }: HeroOverviewProps
         </div>
 
         {/* Глоссарий §0.3 */}
-        <div className="lg:col-span-7 bg-white border border-[#E2DDD4] rounded-xl p-6">
+        <div id="overview-glossary" className="lg:col-span-7 bg-white border border-[#E2DDD4] rounded-xl p-6 scroll-mt-24">
           <div className="flex items-center justify-between gap-4 mb-4">
             <h2 className="font-display text-xl font-semibold text-[#1C1917]">
               0.3. Глоссарий предметной области
@@ -198,7 +198,7 @@ export function HeroOverview({ searchQuery, onSelectContour }: HeroOverviewProps
       </div>
 
       {/* 1.3 Высокоуровневая интерактивная схема */}
-      <div className="bg-white border border-[#E2DDD4] rounded-xl p-6 sm:p-8 space-y-6">
+      <div id="overview-architecture" className="bg-white border border-[#E2DDD4] rounded-xl p-6 sm:p-8 space-y-6 scroll-mt-24">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#E2DDD4] pb-5">
           <div>
             <h2 className="font-display text-2xl font-semibold text-[#1C1917]">
@@ -360,7 +360,7 @@ export function HeroOverview({ searchQuery, onSelectContour }: HeroOverviewProps
 
       {/* 1.2 Пользователи & 1.4 Технологический стек */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-6 bg-white border border-[#E2DDD4] rounded-xl overflow-hidden">
+        <div id="overview-users" className="lg:col-span-6 bg-white border border-[#E2DDD4] rounded-xl overflow-hidden scroll-mt-24">
           <div className="px-6 py-4 border-b border-[#E2DDD4]">
             <h2 className="font-display text-xl font-semibold text-[#1C1917]">
               1.2. Пользователи и каналы доступа
@@ -390,7 +390,7 @@ export function HeroOverview({ searchQuery, onSelectContour }: HeroOverviewProps
           </div>
         </div>
 
-        <div className="lg:col-span-6 bg-white border border-[#E2DDD4] rounded-xl overflow-hidden">
+        <div id="overview-stack" className="lg:col-span-6 bg-white border border-[#E2DDD4] rounded-xl overflow-hidden scroll-mt-24">
           <div className="px-6 py-4 border-b border-[#E2DDD4]">
             <h2 className="font-display text-xl font-semibold text-[#1C1917]">
               1.4. Технологический стек

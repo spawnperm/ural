@@ -85,7 +85,7 @@ export function ApiAndRbacSection() {
         </div>
 
         {/* Interactive API Request/Permission Simulator */}
-        <div className="bg-white border border-[#E2DDD4] rounded-xl p-6 space-y-5">
+        <div id="api-simulator" className="bg-white border border-[#E2DDD4] rounded-xl p-6 space-y-5 scroll-mt-24">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E2DDD4] pb-4">
             <div>
               <h3 className="text-base font-semibold text-[#1C1917]">
@@ -214,7 +214,7 @@ export function ApiAndRbacSection() {
         </div>
 
         {/* 5.1 REST Table */}
-        <div className="bg-white border border-[#E2DDD4] rounded-xl overflow-hidden">
+        <div id="api-rest" className="bg-white border border-[#E2DDD4] rounded-xl overflow-hidden scroll-mt-24">
           <div className="px-6 py-4 border-b border-[#E2DDD4]">
             <h3 className="text-base font-semibold text-[#1C1917]">5.1. Сводка REST API (Directus)</h3>
           </div>
@@ -248,7 +248,7 @@ export function ApiAndRbacSection() {
 
         {/* 5.2 NATS + 5.3 Errors */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-7 bg-white border border-[#E2DDD4] rounded-xl overflow-hidden">
+          <div id="api-nats" className="lg:col-span-7 bg-white border border-[#E2DDD4] rounded-xl overflow-hidden scroll-mt-24">
             <div className="px-6 py-4 border-b border-[#E2DDD4]">
               <h3 className="text-base font-semibold text-[#1C1917]">
                 5.2. События NATS JetStream (стримы)
@@ -282,7 +282,7 @@ export function ApiAndRbacSection() {
             </div>
           </div>
 
-          <div className="lg:col-span-5 bg-white border border-[#E2DDD4] rounded-xl p-6 space-y-4">
+          <div id="api-errors" className="lg:col-span-5 bg-white border border-[#E2DDD4] rounded-xl p-6 space-y-4 scroll-mt-24">
             <h3 className="text-base font-semibold text-[#1C1917]">5.3. Формат и коды ошибок</h3>
             <pre className="p-3 rounded-lg bg-[#1C1917] text-[#F5F3EE] font-mono text-xs overflow-x-auto">
               <code>{`{ "error": { "code": "INVALID_TOKEN", "message": "...", "details": {} } }`}</code>
@@ -343,7 +343,7 @@ export function ApiAndRbacSection() {
           </div>
         </div>
 
-        <div className="bg-white border border-[#E2DDD4] rounded-xl overflow-hidden">
+        <div id="rbac-matrix" className="bg-white border border-[#E2DDD4] rounded-xl overflow-hidden scroll-mt-24">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>
@@ -396,7 +396,7 @@ export function ApiAndRbacSection() {
         </div>
 
         {/* 6.3 Правила безопасности */}
-        <div className="p-5 rounded-xl bg-[#FFFBEB] border border-[#FDE68A] space-y-2.5">
+        <div id="rbac-rules" className="p-5 rounded-xl bg-[#FFFBEB] border border-[#FDE68A] space-y-2.5 scroll-mt-24">
           <div className="flex items-center gap-2 text-sm font-semibold text-[#78350F]">
             <AlertTriangle className="w-4 h-4 text-[#B45309]" />
             <span>6.3. Критичные правила безопасности RBAC</span>

@@ -33,7 +33,7 @@ export function DeploymentAndOpsSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div id="deploy-bootstrap" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start scroll-mt-24">
           <div className="lg:col-span-7 space-y-4">
             <CopyCodeBlock
               code={DOCKER_BOOTSTRAP_SNIPPET}
@@ -65,7 +65,7 @@ export function DeploymentAndOpsSection() {
         </div>
 
         {/* 7.3 Публичные endpoint'ы (dev) */}
-        <div className="bg-white border border-[#E2DDD4] rounded-xl overflow-hidden">
+        <div id="deploy-endpoints" className="bg-white border border-[#E2DDD4] rounded-xl overflow-hidden scroll-mt-24">
           <div className="px-6 py-4 border-b border-[#E2DDD4]">
             <h3 className="text-base font-semibold text-[#1C1917]">
               7.3. Публичные endpoint&apos;ы локального стенда (dev)
@@ -105,7 +105,7 @@ export function DeploymentAndOpsSection() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div id="onboarding-git" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start scroll-mt-24">
           <div className="lg:col-span-6">
             <CopyCodeBlock
               code={ONBOARDING_SNIPPET}
@@ -167,7 +167,7 @@ export function DeploymentAndOpsSection() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div id="ops-slo" className="grid grid-cols-1 lg:grid-cols-12 gap-6 scroll-mt-24">
           {/* 11.1 SLO */}
           <div className="lg:col-span-6 bg-white border border-[#E2DDD4] rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-[#E2DDD4]">
@@ -222,7 +222,7 @@ export function DeploymentAndOpsSection() {
         </div>
 
         {/* 11.2 Monitoring & 11.3 Backups */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div id="ops-monitoring" className="grid grid-cols-1 lg:grid-cols-12 gap-6 scroll-mt-24">
           <div className="lg:col-span-7 bg-white border border-[#E2DDD4] rounded-xl p-6 space-y-3">
             <h3 className="text-base font-semibold text-[#1C1917]">11.2. Объекты мониторинга</h3>
             <dl className="divide-y divide-[#EBE6DF] text-sm">
@@ -262,7 +262,7 @@ export function DeploymentAndOpsSection() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div id="appendices-env" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start scroll-mt-24">
           <div className="lg:col-span-5">
             <CopyCodeBlock
               code={ENV_EXAMPLE_SNIPPET}

@@ -34,7 +34,7 @@ export function DomainAndDataSection() {
         </div>
 
         {/* 3.1 Bounded Contexts */}
-        <div className="bg-white border border-[#E2DDD4] rounded-xl overflow-hidden">
+        <div id="ddd-contexts" className="bg-white border border-[#E2DDD4] rounded-xl overflow-hidden scroll-mt-24">
           <div className="px-6 py-4 border-b border-[#E2DDD4]">
             <h3 className="text-base font-semibold text-[#1C1917]">
               3.1. Ограниченные контексты (Bounded Contexts)
@@ -71,7 +71,7 @@ export function DomainAndDataSection() {
         </div>
 
         {/* 3.2 Relations + 3.3 Contract */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div id="ddd-relations" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start scroll-mt-24">
           <div className="lg:col-span-6 bg-white border border-[#E2DDD4] rounded-xl p-6 space-y-4">
             <h3 className="text-base font-semibold text-[#1C1917]">
               3.2. Отношения между контекстами (Context Map)
@@ -120,7 +120,7 @@ export function DomainAndDataSection() {
         </div>
 
         {/* Collection Switcher */}
-        <div className="flex flex-wrap gap-1.5">
+        <div id="data-collections" className="flex flex-wrap gap-1.5 scroll-mt-24">
           {DATA_COLLECTIONS.map((col) => {
             const isActive = col.name === activeCollection.name;
             return (
@@ -192,7 +192,7 @@ export function DomainAndDataSection() {
         </div>
 
         {/* 4.2 Индексы и ограничения */}
-        <div className="bg-white border border-[#E2DDD4] rounded-xl p-6">
+        <div id="data-constraints" className="bg-white border border-[#E2DDD4] rounded-xl p-6 scroll-mt-24">
           <h3 className="text-base font-semibold text-[#1C1917] mb-3">
             4.2. Индексы и ограничения целостности
           </h3>

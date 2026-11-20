@@ -221,6 +221,7 @@ export function GuidesAndSimulatorSection() {
         </div>
 
         {/* Guide Content Panel */}
+        <div id="guides-roles" className="scroll-mt-24">
         {guideTab === 'user' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-7 bg-white border border-[#E2DDD4] rounded-xl p-6 space-y-6">
@@ -379,6 +380,7 @@ export function GuidesAndSimulatorSection() {
             </div>
           </div>
         )}
+        </div>
       </section>
 
       {/* Interactive Workbench: AR Quest + Event Manager QR Redemption */}

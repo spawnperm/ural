@@ -12,11 +12,14 @@ import { GuidesAndSimulatorSection } from './components/GuidesAndSimulatorSectio
 import { HeroOverview } from './components/HeroOverview';
 import { SidebarNav } from './components/SidebarNav';
 import { StackExtensionAndAdrSection } from './components/StackExtensionAndAdrSection';
+import { TableOfContents } from './components/TableOfContents';
 import { TopBar } from './components/TopBar';
 import { AudienceKey, DOC_META, DOC_SECTIONS } from './data/projectDocs';
 
 export default function App() {
   const [activeSection, setActiveSection] = useState<string>('overview');
+  const [activeSubSection, setActiveSubSection] = useState<string>('overview-mechanics');
+  const [scrollProgress, setScrollProgress] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [audienceFilter, setAudienceFilter] = useState<AudienceKey>('all');
   const [selectedContourNum, setSelectedContourNum] = useState<number>(1);
@@ -24,13 +27,16 @@ export default function App() {
 
   useEffect(() => {
     const sectionIds = DOC_SECTIONS.map((s) => s.id);
-    const elements = sectionIds
+    const sectionEls = sectionIds
       .map((id) => document.getElementById(id))
       .filter((el): el is HTMLElement => el !== null);
 
-    if (elements.length === 0) return;
+    const subIds = DOC_SECTIONS.flatMap((s) => s.subsections.map((sub) => sub.id));
+    const subEls = subIds
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => el !== null);
 
-    const observer = new IntersectionObserver(
+    const sectionObserver = new IntersectionObserver(
       (entries) => {
         const visible = entries
           .filter((entry) => entry.isIntersecting)
@@ -39,11 +45,43 @@ export default function App() {
           setActiveSection(visible[0].target.id);
         }
       },
-      { rootMargin: '-20% 0px -65% 0px', threshold: 0 }
+      { rootMargin: '-18% 0px -68% 0px', threshold: 0 }
     );
 
-    elements.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+    const subObserver = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible.length > 0) {
+          setActiveSubSection(visible[0].target.id);
+        }
+      },
+      { rootMargin: '-15% 0px -70% 0px', threshold: 0 }
+    );
+
+    sectionEls.forEach((el) => sectionObserver.observe(el));
+    subEls.forEach((el) => subObserver.observe(el));
+
+    const handleScroll = () => {
+      const docEl = document.documentElement;
+      const total = docEl.scrollHeight - docEl.clientHeight;
+      if (total <= 0) {
+        setScrollProgress(0);
+        return;
+      }
+      const pct = Math.min(100, Math.max(0, Math.round((window.scrollY / total) * 100)));
+      setScrollProgress(pct);
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      sectionObserver.disconnect();
+      subObserver.disconnect();
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   const handleJumpToSimulator = () => {
@@ -59,6 +97,13 @@ export default function App() {
     setActiveSection('contours');
   };
 
+  const handleSelectNavigation = (sectionId: string, subId?: string) => {
+    setActiveSection(sectionId);
+    if (subId) {
+      setActiveSubSection(subId);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F7F5F0] text-[#1C1917]">
       <TopBar
@@ -72,32 +117,41 @@ export default function App() {
         <div className="lg:hidden fixed inset-0 top-16 z-20 bg-[#F7F5F0] border-t border-[#E2DDD4] overflow-y-auto p-6">
           <SidebarNav
             activeSection={activeSection}
+            activeSubSection={activeSubSection}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             audienceFilter={audienceFilter}
             onAudienceChange={setAudienceFilter}
-            onSelectSection={(id) => {
-              setActiveSection(id);
+            onSelectSection={(secId, subId) => {
+              handleSelectNavigation(secId, subId);
               setMobileMenuOpen(false);
             }}
           />
         </div>
       )}
 
-      {/* Main 1440px Desktop Workspace */}
-      <div className="flex-1 w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10 flex flex-col lg:flex-row gap-8 lg:gap-10 items-start">
+      {/* Main 1440px Desktop Workspace: Left Sidebar + Main Content + Right TOC */}
+      <div className="flex-1 w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10 flex flex-col lg:flex-row gap-8 items-start">
         <aside className="hidden lg:block w-[260px] shrink-0 sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2">
           <SidebarNav
             activeSection={activeSection}
+            activeSubSection={activeSubSection}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             audienceFilter={audienceFilter}
             onAudienceChange={setAudienceFilter}
-            onSelectSection={(id) => setActiveSection(id)}
+            onSelectSection={handleSelectNavigation}
           />
         </aside>
 
         <main className="flex-1 min-w-0 space-y-14">
+          <TableOfContents
+            variant="mobile"
+            activeSection={activeSection}
+            activeSubSection={activeSubSection}
+            scrollProgress={scrollProgress}
+            onSelectAnchor={handleSelectNavigation}
+          />
           <HeroOverview
             searchQuery={searchQuery}
             onSelectContour={handleSelectContour}
@@ -112,6 +166,14 @@ export default function App() {
           <DeploymentAndOpsSection />
           <StackExtensionAndAdrSection />
         </main>
+
+        <TableOfContents
+          variant="desktop"
+          activeSection={activeSection}
+          activeSubSection={activeSubSection}
+          scrollProgress={scrollProgress}
+          onSelectAnchor={handleSelectNavigation}
+        />
       </div>
 
       {/* Institutional Footer */}

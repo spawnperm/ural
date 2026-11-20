@@ -26,7 +26,7 @@ export function ContoursExplorer({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div id="contours-list" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start scroll-mt-24">
         {/* Left List of 11 Contours */}
         <div className="lg:col-span-5 bg-white border border-[#E2DDD4] rounded-xl overflow-hidden divide-y divide-[#EBE6DF]">
           {CONTOURS.map((contour) => {
