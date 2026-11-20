@@ -113,6 +113,82 @@ jobs:
           path: dist/
           retention-days: 7
 
+  temporal:
+    name: Temporal sagas (real server)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: quality
+    services:
+      # A real server, not a mock. The whole risk in workflow code is that it
+      # passes unit tests and still fails the deterministic sandbox on replay, so
+      # the only meaningful check runs it for real.
+      temporal:
+        image: temporalio/temporal:1.26.0
+        options: >-
+          --health-cmd "temporal operator cluster health"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 25s
+        ports:
+          - 7233:7233
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Start worker
+        env:
+          TEMPORAL_ADDRESS: 127.0.0.1:7233
+          TEMPORAL_TASK_QUEUE: quest-orchestration
+        run: |
+          # Detached with output captured: the smoke test needs a live poller on
+          # the queue, and the logs are only useful if the run fails.
+          nohup pnpm run temporal:worker > /tmp/worker.log 2>&1 &
+          echo $! > /tmp/worker.pid
+
+          # Wait for the worker to log RUNNING rather than sleeping a fixed time:
+          # a cold dependency cache makes webpack compilation noticeably slower.
+          for i in $(seq 1 60); do
+            if grep -q "worker started" /tmp/worker.log; then
+              echo "worker is up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::worker did not start in 60s"
+          tail -40 /tmp/worker.log
+          exit 1
+
+      - name: Run saga smoke test
+        env:
+          TEMPORAL_ADDRESS: 127.0.0.1:7233
+          TEMPORAL_NAMESPACE: default
+          TEMPORAL_TASK_QUEUE: quest-orchestration
+        run: pnpm run temporal:smoke
+
+      - name: Worker logs
+        if: failure()
+        run: tail -60 /tmp/worker.log
+
+      - name: Stop worker
+        if: always()
+        run: |
+          if [ -f /tmp/worker.pid ]; then
+            kill "$(cat /tmp/worker.pid)" 2>/dev/null || true
+          fi
+
   security:
     name: Secret & dependency scan
     runs-on: ubuntu-latest

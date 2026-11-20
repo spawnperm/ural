@@ -17,7 +17,8 @@ import {
   sanitizeCommitMessage,
   GitError,
 } from '../server/gitService.ts';
-import { validateCommitPushBody } from '../server/validation.ts';
+import { validateBody } from '../server/validation.ts';
+import { commitPushBodySchema } from '../server/schemas.ts';
 
 describe('redactSecrets', () => {
   it('removes a Basic auth header value', () => {
@@ -72,8 +73,10 @@ describe('sanitizeCommitMessage', () => {
 });
 
 describe('commit body and message handling compose correctly', () => {
+  const validate = (raw: unknown) => validateBody(commitPushBodySchema, raw);
+
   it('passes a validated message through the sanitiser unchanged', () => {
-    const result = validateCommitPushBody({ message: 'feat: новая секция' });
+    const result = validate({ message: 'feat: новая секция' });
     assert.equal(result.ok, true);
     if (result.ok) {
       assert.equal(sanitizeCommitMessage(result.value.message), 'feat: новая секция');
@@ -83,7 +86,7 @@ describe('commit body and message handling compose correctly', () => {
   it('rejects an option-injection attempt before git ever sees it', () => {
     // The schema allows the string (it is short enough), so the sanitiser is the
     // layer that stops it. Both layers are exercised here on purpose.
-    const result = validateCommitPushBody({ message: '--upload-pack=evil' });
+    const result = validate({ message: '--upload-pack=evil' });
     assert.equal(result.ok, true);
     if (result.ok) {
       assert.throws(() => sanitizeCommitMessage(result.value.message), GitError);

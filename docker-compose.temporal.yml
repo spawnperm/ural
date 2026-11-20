@@ -1,0 +1,49 @@
+# Temporal dev server for the quest sagas.
+#
+# This is the *development* server: a single binary with an embedded SQLite
+# store and no persistence guarantees beyond the named volume. A real deployment
+# runs Temporal with Cassandra/PostgreSQL, a frontend service and visibility
+# store — see docs/TEMPORAL.md.
+#
+# Started by `pnpm run temporal:up`.
+services:
+  temporal:
+    image: temporalio/temporal:latest
+    container_name: ural-temporal
+    command:
+      - server
+      - start-dev
+      - --ip
+      - 0.0.0.0
+      - --db-filename
+      - /data/temporal.db
+    ports:
+      # Bound to loopback: the dev server has no authentication, so publishing it
+      # on all interfaces would expose workflow control to the local network.
+      - "127.0.0.1:7233:7233"   # gRPC frontend (client + worker)
+      - "127.0.0.1:8233:8233"   # Web UI
+    volumes:
+      - temporal-data:/data
+    healthcheck:
+      # `temporal operator cluster health` is the documented readiness probe; a
+      # plain TCP check passes before the frontend can serve requests.
+      test: ["CMD", "temporal", "operator", "cluster", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+volumes:
+  temporal-data:
+    driver: local

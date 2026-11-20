@@ -9,6 +9,12 @@
  * `undefined` in the UI. This is the one piece of the PSTU codebase worth
  * copying wholesale: an API contract that exists only in documentation drifts
  * within a week.
+ *
+ * Division of labour with `src/server/schemas.ts`:
+ * - request bodies are Zod schemas there, because they need a runtime check as
+ *   well as a type;
+ * - response shapes are plain types here, because the server produces them and a
+ *   runtime parse on every response would cost more than it catches.
  */
 
 export interface GitFileChangeDto {

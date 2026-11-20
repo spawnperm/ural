@@ -7,6 +7,11 @@
 контента портал умеет показывать состояние Git-репозитория и выполнять
 коммит-пуш из интерфейса, поэтому серверная часть — не просто раздача статики.
 
+Дополнительно в репозитории лежит эталонная реализация оркестрации квеста на
+**Temporal** (`src/temporal/`): серия печатей на три месяца, таймеры протухания
+приглашений и идемпотентная генерация QR/PDF. Это код системы, которую портал
+документирует, а не часть самого портала — см. [`docs/TEMPORAL.md`](docs/TEMPORAL.md).
+
 ---
 
 ## Содержание
@@ -59,6 +64,9 @@ NODE_ENV=production pnpm start
 | `pnpm test` | Тесты на встроенном раннере Node (`node:test`) |
 | `pnpm run test:coverage` | Тесты с покрытием и порогами (падает при регрессе) |
 | `pnpm run check:env-docs` | Сверяет `.env.example` с переменными, которые реально читает код |
+| `pnpm run temporal:up` | Поднимает dev-сервер Temporal (порты 7233, Web UI 8233) |
+| `pnpm run temporal:worker` | Запускает воркер очереди `quest-orchestration` |
+| `pnpm run temporal:smoke` | Сквозная проверка workflow на живом сервере |
 | `pnpm run clean` | Удаляет `dist/` и `coverage/` |
 
 ---
@@ -72,7 +80,8 @@ src/server/               серверные модули (тестируютс�
   config.ts               единственное место чтения переменных окружения
   gitService.ts           git через execFile, без shell; токен вне argv
   gitRouter.ts            маршруты /api/git/*
-  validation.ts           валидация тел запросов
+  schemas.ts              Zod-схемы запросов: правила + выведенные типы
+  validation.ts           адаптер Zod → RFC 7807 details
   rateLimiter.ts          скользящее окно для пишущего эндпоинта
   problemDetails.ts       ответы об ошибках по RFC 7807
   requestId.ts            X-Request-Id и корреляция логов
@@ -81,6 +90,11 @@ src/server/               серверные модули (тестируютс�
 src/shared/apiContract.ts типы запросов и ответов, общие для сервера и UI
 src/components/           секции портала
 src/data/                 контент документации и снапшоты версий
+src/temporal/             оркестрация квеста на Temporal (эталон для сервиса workers)
+  workflows.ts            детерминированные саги: печати, протухание, артефакты
+  activities.ts           идемпотентные эффекты: запись, публикация, рендер
+  worker.ts               воркер очереди quest-orchestration
+  client.ts               запуск workflow с детерминированными id
 src/tests/                тесты: юнит, контрактные, интеграционные
 ```
 
@@ -124,6 +138,11 @@ src/tests/                тесты: юнит, контрактные, инте
 
 Типы запросов и ответов живут в `src/shared/apiContract.ts` и импортируются и
 сервером, и UI: изменение формы ответа ломает сборку, а не рендер.
+
+Тела запросов описаны Zod-схемами в `src/server/schemas.ts`. Схема — единственный
+источник правды: из неё выводится TypeScript-тип (`z.infer`) и берётся
+runtime-проверка, поэтому тип и валидация не могут разойтись. `validation.ts`
+переводит ошибки Zod в `details` формата RFC 7807.
 
 ### Безопасность Git-панели
 
@@ -203,6 +222,8 @@ pnpm run lint && pnpm test && pnpm run check:env-docs
   причины.
 - [`docs/API.md`](docs/API.md) — контракты с примерами.
 - [`docs/TESTING.md`](docs/TESTING.md) — как писать тесты в этом проекте.
+- [`docs/TEMPORAL.md`](docs/TEMPORAL.md) — оркестрация квеста: три workflow,
+  правила детерминизма, идемпотентность activities и границы реализации.
 
 ## Лицензия
 

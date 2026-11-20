@@ -20,6 +20,11 @@ engineStrict: true
 #
 # esbuild needs its postinstall to place the platform binary (Vite's dep
 # optimiser and tsx both load it); protobufjs ships one too.
+#
+# `@swc/core` arrives with the Temporal worker: it compiles user workflow code
+# inside the worker's sandbox. Without its postinstall the native binary is
+# missing and the worker refuses to start.
 allowBuilds:
+  '@swc/core': true
   esbuild: true
   protobufjs: true

@@ -13,7 +13,8 @@ import { Router } from 'express';
 import { sendProblem } from './problemDetails.ts';
 import { createRateLimitMiddleware } from './rateLimiter.ts';
 import { GitError, type GitService } from './gitService.ts';
-import { validateCommitPushBody } from './validation.ts';
+import { validateBody } from './validation.ts';
+import { commitPushBodySchema } from './schemas.ts';
 import { type CommitPushResponse } from '../shared/apiContract.ts';
 
 const COMMIT_PUSH_POLICY = {
@@ -42,7 +43,7 @@ export function createGitRouter(git: GitService): Router {
     '/commit-push',
     createRateLimitMiddleware(COMMIT_PUSH_POLICY),
     async (req, res) => {
-      const validation = validateCommitPushBody(req.body);
+      const validation = validateBody(commitPushBodySchema, req.body);
       if (!validation.ok) {
         sendProblem(res, 400, validation.error, validation.details);
         return;
