@@ -4,10 +4,12 @@
  */
 
 import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import { ApiAndRbacSection } from './components/ApiAndRbacSection';
 import { ContoursExplorer } from './components/ContoursExplorer';
 import { DeploymentAndOpsSection } from './components/DeploymentAndOpsSection';
 import { DomainAndDataSection } from './components/DomainAndDataSection';
+import { GitCommitPushPanel } from './components/GitCommitPushPanel';
 import { GuidesAndSimulatorSection } from './components/GuidesAndSimulatorSection';
 import { HeroOverview } from './components/HeroOverview';
 import { SidebarNav } from './components/SidebarNav';
@@ -24,6 +26,7 @@ export default function App() {
   const [audienceFilter, setAudienceFilter] = useState<AudienceKey>('all');
   const [selectedContourNum, setSelectedContourNum] = useState<number>(1);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [gitModalOpen, setGitModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const sectionIds = DOC_SECTIONS.map((s) => s.id);
@@ -155,6 +158,7 @@ export default function App() {
           <HeroOverview
             searchQuery={searchQuery}
             onSelectContour={handleSelectContour}
+            onOpenGitModal={() => setGitModalOpen(true)}
           />
           <ContoursExplorer
             selectedContourNum={selectedContourNum}
@@ -175,6 +179,30 @@ export default function App() {
           onSelectAnchor={handleSelectNavigation}
         />
       </div>
+
+      {/* Git Commit & Push Modal */}
+      {gitModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Применение изменений: коммит и пуш"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+        >
+          <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl shadow-xl">
+            <button
+              type="button"
+              onClick={() => setGitModalOpen(false)}
+              aria-label="Закрыть окно"
+              className="absolute right-4 top-4 z-10 p-1.5 rounded-lg text-[#57534E] hover:text-[#1C1917] hover:bg-[#F7F5F0] transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="[&>div]:pr-12">
+              <GitCommitPushPanel />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Institutional Footer */}
       <footer className="border-t border-[#E2DDD4] bg-white">

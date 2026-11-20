@@ -14,6 +14,7 @@ import {
   WSL_CONFIG_SNIPPET,
 } from '../data/projectDocs';
 import { CopyCodeBlock } from './CopyCodeBlock';
+import { GitCommitPushPanel } from './GitCommitPushPanel';
 
 export function DeploymentAndOpsSection() {
   return (
@@ -154,6 +155,8 @@ export function DeploymentAndOpsSection() {
             </div>
           </div>
         </div>
+
+        <GitCommitPushPanel />
       </section>
 
       {/* Section 11: Operations & Monitoring */}

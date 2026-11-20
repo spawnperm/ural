@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, ArrowUpRight } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, UploadCloud } from 'lucide-react';
 import {
   ARCHITECTURE_NODES,
   CONVENTIONS,
@@ -13,9 +13,14 @@ import { ResilientImage } from './ResilientImage';
 interface HeroOverviewProps {
   searchQuery: string;
   onSelectContour: (contourNum: number) => void;
+  onOpenGitModal: () => void;
 }
 
-export function HeroOverview({ searchQuery, onSelectContour }: HeroOverviewProps) {
+export function HeroOverview({
+  searchQuery,
+  onSelectContour,
+  onOpenGitModal,
+}: HeroOverviewProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<string>('directus');
 
   const selectedNode =
@@ -76,6 +81,14 @@ export function HeroOverview({ searchQuery, onSelectContour }: HeroOverviewProps
             >
               <span>API-контракты и RBAC</span>
             </a>
+            <button
+              type="button"
+              onClick={onOpenGitModal}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-[#1E3A8A] bg-[#EEF2FF] hover:bg-[#E0E7FF] border border-[#BFDBFE] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <UploadCloud className="w-4 h-4" />
+              <span>Коммит и пуш</span>
+            </button>
           </div>
         </div>
 
