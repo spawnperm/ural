@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Award,
@@ -8,7 +8,7 @@ import {
   ScanLine,
   XCircle,
 } from 'lucide-react';
-import { SIMULATOR_QUEST, TROUBLESHOOTING_ROWS } from '../data/projectDocs';
+import { TROUBLESHOOTING_ROWS } from '../data/projectDocs';
 import {
   REDEMPTION_CODES,
   REDEMPTION_WORKFLOW,
@@ -16,7 +16,11 @@ import {
   stateForInvitation,
   toMermaid,
 } from '../data/redemptionWorkflow';
+import {
+  NOVEMBER_BERING_SCENARIO as QUEST_SCENARIO,
+} from '../data/questScenario';
 import { Invitation, type InvitationSnapshot } from '../domain/invitations/Invitation';
+import { QuestAttempt, type AttemptSnapshot } from '../domain/quest/QuestAttempt';
 import { Instant } from '../domain/invitations/valueObjects';
 import { ResilientImage } from './ResilientImage';
 
@@ -90,7 +94,18 @@ export function GuidesAndSimulatorSection() {
   // AR Quest Simulator State
   const [arDetected, setArDetected] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
+  /**
+   * The attempt snapshot, not a `number[]`.
+   *
+   * Previously the component held `selectedAnswers: number[]` and derived the
+   * score with a `reduce` over question indexes — logic that could silently
+   * disagree with the question data. Now answers are validated by the aggregate
+   * and the score is a property of it.
+   */
+  const [attemptSnapshot, setAttemptSnapshot] = useState<AttemptSnapshot>({
+    scenarioId: QUEST_SCENARIO.id,
+    answers: [],
+  });
   const [revealedExplanation, setRevealedExplanation] = useState(false);
 
   // Event Manager QR Validator State
@@ -105,26 +120,39 @@ export function GuidesAndSimulatorSection() {
     message: string;
   } | null>(null);
 
-  const currentQuestion = SIMULATOR_QUEST.questions[questionIndex];
-  const isQuestFinished =
-    selectedAnswers.length === SIMULATOR_QUEST.questions.length &&
-    revealedExplanation &&
-    questionIndex === SIMULATOR_QUEST.questions.length - 1;
+  /*
+   * The aggregate is rebuilt from the snapshot on each render — same pattern as
+   * the invitation above, and for the same reason: it is a value, not state to
+   * mutate across renders.
+   */
+  const attempt = useMemo(
+    () =>
+      QuestAttempt.restore(
+        'simulator-attempt',
+        QUEST_SCENARIO.id,
+        QUEST_SCENARIO.questions,
+        attemptSnapshot
+      ),
+    [attemptSnapshot]
+  );
 
-  const correctCount = selectedAnswers.reduce((acc, ans, idx) => {
-    return acc + (ans === SIMULATOR_QUEST.questions[idx].correct ? 1 : 0);
-  }, 0);
+  const currentQuestion = attempt.questionAt(questionIndex);
+  const currentAnswer = attempt.answers.find((a) => a.question.id === currentQuestion.id);
+  const isQuestFinished = attempt.isComplete && revealedExplanation;
+  const correctCount = attempt.correctCount;
 
   const handleSelectOption = (optIdx: number) => {
     if (revealedExplanation) return;
-    const nextAnswers = [...selectedAnswers];
-    nextAnswers[questionIndex] = optIdx;
-    setSelectedAnswers(nextAnswers);
+    // The aggregate validates the index against the question; an out-of-range
+    // option now throws instead of silently scoring as wrong.
+    attempt.answer(currentQuestion.id, optIdx, SIMULATOR_NOW.iso);
+    attempt.pullEvents();
+    setAttemptSnapshot(attempt.toSnapshot());
     setRevealedExplanation(true);
   };
 
   const handleNextQuestion = () => {
-    if (questionIndex < SIMULATOR_QUEST.questions.length - 1) {
+    if (questionIndex < attempt.totalQuestions - 1) {
       setQuestionIndex((prev) => prev + 1);
       setRevealedExplanation(false);
     }
@@ -133,7 +161,7 @@ export function GuidesAndSimulatorSection() {
   const handleResetQuest = () => {
     setArDetected(false);
     setQuestionIndex(0);
-    setSelectedAnswers([]);
+    setAttemptSnapshot({ scenarioId: QUEST_SCENARIO.id, answers: [] });
     setRevealedExplanation(false);
   };
 
@@ -149,8 +177,8 @@ export function GuidesAndSimulatorSection() {
       token: newToken,
       participantEmail: 'participant@perm-quest.ru',
       participantName: 'Участник (3 месяца подряд)',
-      eventTitle: `${SIMULATOR_QUEST.monthLabel} · ${SIMULATOR_QUEST.location}`,
-      seals: Math.max(1, correctCount),
+      eventTitle: `${QUEST_SCENARIO.monthLabel} · ${QUEST_SCENARIO.location}`,
+      seals: attempt.sealsAwarded,
       issuedAt: '2026-11-20T11:45:00Z',
       expiresAt: '2026-11-28T14:00:00Z',
     });
@@ -453,10 +481,10 @@ export function GuidesAndSimulatorSection() {
           <div className="lg:col-span-6 space-y-4">
             <div className="flex items-center justify-between text-xs text-[#57534E]">
               <span className="font-semibold text-[#1C1917]">
-                Шаг 1. Клиент участника ({SIMULATOR_QUEST.monthLabel})
+                Шаг 1. Клиент участника ({QUEST_SCENARIO.monthLabel})
               </span>
               <span className="tabular-nums">
-                {SIMULATOR_QUEST.era} · {SIMULATOR_QUEST.location}
+                {QUEST_SCENARIO.era} · {QUEST_SCENARIO.location}
               </span>
             </div>
 
@@ -480,10 +508,10 @@ export function GuidesAndSimulatorSection() {
               <div className="border border-[#E2DDD4] rounded-xl p-5 bg-[#F7F5F0] space-y-4">
                 <div className="flex items-center justify-between text-xs text-[#57534E] tabular-nums">
                   <span>
-                    Персонаж: <strong className="text-[#1C1917]">{SIMULATOR_QUEST.characterName}</strong>
+                    Персонаж: <strong className="text-[#1C1917]">{QUEST_SCENARIO.characterName}</strong>
                   </span>
                   <span>
-                    Вопрос {questionIndex + 1} из {SIMULATOR_QUEST.questions.length}
+                    Вопрос {questionIndex + 1} из {attempt.totalQuestions}
                   </span>
                 </div>
 
@@ -493,8 +521,8 @@ export function GuidesAndSimulatorSection() {
 
                 <div className="space-y-2">
                   {currentQuestion.options.map((opt, idx) => {
-                    const chosen = selectedAnswers[questionIndex] === idx;
-                    const isRight = idx === currentQuestion.correct;
+                    const chosen = currentAnswer?.optionIndex === idx;
+                    const isRight = currentQuestion.isCorrectOption(idx);
                     let btnStyle =
                       'bg-white border-[#D6D0C4] text-[#1C1917] hover:bg-[#FAF8F5]';
                     if (revealedExplanation) {
@@ -545,8 +573,9 @@ export function GuidesAndSimulatorSection() {
                     <div className="flex items-center gap-2 text-sm font-semibold text-[#14532D]">
                       <Award className="w-4 h-4 text-[#16A34A]" />
                       <span className="tabular-nums">
-                        Квест завершён · Правильных ответов: {correctCount} из 3 · Начислено печатей:{' '}
-                        {Math.max(1, correctCount)}
+                        Квест завершён · Правильных ответов: {correctCount} из{' '}
+                        {attempt.totalQuestions} · Начислено печатей:{' '}
+                        {attempt.sealsAwarded}
                       </span>
                     </div>
                     <p className="text-xs text-[#57534E]">

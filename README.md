@@ -91,7 +91,11 @@ src/shared/apiContract.ts типы запросов и ответов, общи�
 src/components/           секции портала
 src/data/                 контент документации и снапшоты версий
   redemptionWorkflow.ts   погашение приглашения как данные: исполнение + диаграмма
-src/domain/invitations/   контекст «Приглашения»: агрегат, value objects, события
+src/domain/               доменные контексты (см. docs/DOMAIN.md)
+  invitations/            агрегат Invitation, value objects, события
+  quest/                  агрегат QuestAttempt, вопросы и ответы
+  content/                жизненный цикл персонажа и наборов вопросов
+  auth/                   матрица прав и маскирование полей
 src/temporal/             оркестрация квеста на Temporal (эталон для сервиса workers)
   workflows.ts            детерминированные саги: печати, протухание, артефакты
   activities.ts           идемпотентные эффекты: запись, публикация, рендер
