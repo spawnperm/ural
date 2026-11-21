@@ -49,6 +49,12 @@ jobs:
       - name: Verify .env.example matches the code
         run: pnpm run check:env-docs
 
+      - name: Verify docs/API.md matches the OpenAPI document
+        # The spec is generated from Zod and API.md from the spec. Without this
+        # gate the markdown drifts one release behind, which is the exact drift
+        # the generator was added to remove.
+        run: pnpm run docs:api:check
+
       - name: Run tests with coverage
         run: pnpm run test:coverage
 
@@ -222,13 +228,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: gitleaks
-        # Pinned by digest: a floating tag would let an upstream compromise run
+      - name: gitleaks (working tree)
+        # Pinned by tag: a floating `latest` would let an upstream compromise run
         # arbitrary code with the workflow token.
         run: |
           docker run --rm -v "$PWD:/repo" \
             zricethezav/gitleaks:v8.28.0 \
             detect --source=/repo --config=/repo/.gitleaks.toml --no-git --redact -v
+
+      - name: gitleaks (full history)
+        # `--no-git` above scans only the current files. A secret that was
+        # committed and later deleted is invisible to it — and that is the case
+        # that matters, because deleting a file does not remove it from history.
+        #
+        # `fetch-depth: 0` on checkout makes the full history available here.
+        run: |
+          docker run --rm -v "$PWD:/repo" \
+            zricethezav/gitleaks:v8.28.0 \
+            detect --source=/repo --config=/repo/.gitleaks.toml --redact -v
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4

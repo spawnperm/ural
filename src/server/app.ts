@@ -23,6 +23,8 @@ import { createSecurityHeadersMiddleware } from './securityHeaders.ts';
 import { sendProblem } from './problemDetails.ts';
 import { buildOpenApiDocument } from './openapi.ts';
 import { createAssistantRouter } from './assistantRouter.ts';
+import { createMetricsMiddleware, metricsHandler } from './metrics.ts';
+import { createWriteAuthMiddleware } from './writeAuth.ts';
 import { type HealthResponse } from '../shared/apiContract.ts';
 
 export interface AppOptions {
@@ -42,6 +44,9 @@ export function createApp(options: AppOptions): Express {
 
   app.use(createSecurityHeadersMiddleware());
   app.use(createRequestIdMiddleware());
+  // Metrics wrap every route, so a slow endpoint is visible before a user
+  // complains. The scrape path itself is skipped inside the middleware.
+  app.use(createMetricsMiddleware());
 
   if (requestLogger) {
     app.use((req, res, next) => {
@@ -73,7 +78,9 @@ export function createApp(options: AppOptions): Express {
     res.json(health);
   });
 
-  app.use('/api/git', createGitRouter(git));
+  // Writes require a bearer token; reads stay open so documentation and the
+  // health probe work without credentials.
+  app.use('/api/git', createWriteAuthMiddleware(), createGitRouter(git));
   app.use('/api/assistant', createAssistantRouter());
 
   /*
@@ -91,6 +98,15 @@ export function createApp(options: AppOptions): Express {
   app.get('/api/openapi.json', (_req, res) => {
     res.json(openApiDocument);
   });
+
+  /*
+   * Prometheus scrape endpoint.
+   *
+   * Outside `/api` on purpose: it is an operational surface, not part of the
+   * documented API, and a proxy rule that exposes `/api` publicly should not
+   * automatically expose request volumes and latencies.
+   */
+  app.get('/metrics', metricsHandler());
   app.use(
     '/api/docs',
     apiReference({

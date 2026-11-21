@@ -39,6 +39,15 @@ export function GitCommitPushPanel() {
     'docs: обновление документации портала'
   );
   const [submitting, setSubmitting] = useState<boolean>(false);
+  /**
+   * Token for the write endpoint, entered by the operator.
+   *
+   * Kept in component state and never persisted: the server reads
+   * `WRITE_API_TOKEN` and compares it, so the value does not need to survive a
+   * reload, and storing it in `localStorage` would put a write credential in a
+   * place any script on the page could read.
+   */
+  const [writeToken, setWriteToken] = useState<string>('');
   const [feedback, setFeedback] = useState<{
     type: 'success' | 'error';
     text: string;
@@ -74,7 +83,11 @@ export function GitCommitPushPanel() {
     try {
       const res = await fetch('/api/git/commit-push', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          // The write endpoint is guarded; without the header it answers 401.
+          ...(writeToken.trim() ? { Authorization: `Bearer ${writeToken.trim()}` } : {}),
+        },
         body: JSON.stringify({ message: commitMessage }),
       });
       if (!res.ok) {
@@ -225,6 +238,30 @@ export function GitCommitPushPanel() {
         />
         <p className="text-[11px] text-[#57534E]">
           До 200 символов. Многострочный текст будет свёрнут в одну строку.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <label
+          htmlFor="write-token"
+          className="block text-xs font-medium text-[#1C1917]"
+        >
+          Токен записи
+        </label>
+        <input
+          id="write-token"
+          type="password"
+          value={writeToken}
+          onChange={(event) => setWriteToken(event.target.value)}
+          disabled={submitting}
+          autoComplete="off"
+          aria-describedby="write-token-hint"
+          className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2DDD4] bg-white text-[#1C1917] font-mono focus:outline-2 focus:outline-[#1E3A8A] focus:outline-offset-1 disabled:opacity-60"
+          placeholder="WRITE_API_TOKEN"
+        />
+        <p id="write-token-hint" className="text-[11px] text-[#57534E]">
+          Значение переменной <code className="font-mono">WRITE_API_TOKEN</code> сервера. Не
+          сохраняется: вводится заново после перезагрузки страницы.
         </p>
       </div>
 

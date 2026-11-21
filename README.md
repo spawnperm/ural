@@ -64,6 +64,9 @@ NODE_ENV=production pnpm start
 | `pnpm test` | Тесты на встроенном раннере Node (`node:test`) |
 | `pnpm run test:coverage` | Тесты с покрытием и порогами (падает при регрессе) |
 | `pnpm run check:env-docs` | Сверяет `.env.example` с переменными, которые реально читает код |
+| `pnpm run docs:api` | Пересобирает `docs/API.md` из OpenAPI |
+| `pnpm run docs:api:check` | Падает, если `docs/API.md` отстал от схем |
+| `pnpm run e2e` | Браузерные тесты (нужен `pnpm run build`) |
 | `pnpm run temporal:up` | Поднимает dev-сервер Temporal (порты 7233, Web UI 8233) |
 | `pnpm run temporal:worker` | Запускает воркер очереди `quest-orchestration` |
 | `pnpm run temporal:smoke` | Сквозная проверка workflow на живом сервере |
@@ -96,6 +99,9 @@ src/domain/               доменные контексты (см. docs/DOMAIN
   quest/                  агрегат QuestAttempt, вопросы и ответы
   content/                жизненный цикл персонажа и наборов вопросов
   auth/                   матрица прав и маскирование полей
+  board/                  доска улучшений: колонки и правила переходов
+src/data/content/         контент портала по темам (meta, sections, stack, dataModel, operations)
+e2e/                      браузерные тесты Playwright
 src/temporal/             оркестрация квеста на Temporal (эталон для сервиса workers)
   workflows.ts            детерминированные саги: печати, протухание, артефакты
   activities.ts           идемпотентные эффекты: запись, публикация, рендер

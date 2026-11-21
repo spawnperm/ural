@@ -251,3 +251,37 @@ describe('event serialisation', () => {
     assert.deepEqual(JSON.parse(JSON.stringify(dto)), dto);
   });
 });
+
+describe("restore rejects impossible history", () => {
+  it("refuses a redemption recorded after the expiry", () => {
+    // A serializer bug or a manual edit could produce this. The aggregate is the
+    // last place able to notice, so it refuses rather than loading a card whose
+    // state contradicts its own dates.
+    assert.throws(
+      () =>
+        Invitation.restore({
+          token: "inv-2026-11-bad-0001",
+          participantEmail: "a@b.co",
+          participantName: "Тест",
+          eventTitle: "Тест",
+          seals: 1,
+          expiresAt: "2026-09-25T18:00:00Z",
+          redeemedAt: "2026-11-20T11:45:00Z",
+        }),
+      (err: unknown) => err instanceof DomainError && err.code === "INVITATION_REDEEMED_AFTER_EXPIRY"
+    );
+  });
+
+  it("accepts a redemption before the expiry", () => {
+    const restored = Invitation.restore({
+      token: "inv-2026-11-ok-0001",
+      participantEmail: "a@b.co",
+      participantName: "Тест",
+      eventTitle: "Тест",
+      seals: 1,
+      expiresAt: "2026-11-28T14:00:00Z",
+      redeemedAt: "2026-11-20T11:45:00Z",
+    });
+    assert.equal(restored.isRedeemed(), true);
+  });
+});

@@ -158,10 +158,22 @@ export class Invitation {
    *
    * Separate from `issue` on purpose: loading an already-redeemed invitation must
    * not raise `InvitationIssued` again, or a page refresh would replay history.
+   *
+   * Rejects a snapshot whose history is impossible — a redemption recorded after
+   * the expiry. The stored data is correct today, but a serializer bug or a manual
+   * edit could produce it, and the aggregate is the last place able to notice.
    */
   public static restore(snapshot: InvitationSnapshot): Invitation {
+    const expiresAt = Instant.parse(snapshot.expiresAt);
     const redeemedAt =
       snapshot.redeemedAt === null ? null : Instant.parse(snapshot.redeemedAt);
+
+    if (redeemedAt && redeemedAt.isAfter(expiresAt)) {
+      throw new DomainError(
+        `Невозможная история: приглашение погашено (${redeemedAt.iso}) позже истечения (${expiresAt.iso}).`,
+        'INVITATION_REDEEMED_AFTER_EXPIRY'
+      );
+    }
 
     const invitation = new Invitation({
       token: InvitationToken.parse(snapshot.token),
@@ -169,7 +181,7 @@ export class Invitation {
       participantName: snapshot.participantName.trim(),
       eventTitle: snapshot.eventTitle.trim(),
       seals: SealCount.of(snapshot.seals),
-      expiresAt: Instant.parse(snapshot.expiresAt),
+      expiresAt,
       redeemedAt,
     });
     return invitation;

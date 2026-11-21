@@ -11,7 +11,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, it, before, after } from 'node:test';
-import { startTestServer, type TestServer } from './helpers/appHarness.ts';
+import { startTestServer, writeHeaders, type TestServer } from './helpers/appHarness.ts';
 import { GitError } from '../server/gitService.ts';
 import { API_ROUTES } from '../shared/apiContract.ts';
 
@@ -121,7 +121,7 @@ describe('POST /api/git/commit-push', () => {
   it('commits and pushes with a valid message', async () => {
     const res = await fetch(`${server.baseUrl}${API_ROUTES.gitCommitPush}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...writeHeaders(server.writeToken) },
       body: JSON.stringify({ message: 'docs: обновление' }),
     });
     assert.equal(res.status, 200);
@@ -134,7 +134,7 @@ describe('POST /api/git/commit-push', () => {
   it('accepts an empty body', async () => {
     const res = await fetch(`${server.baseUrl}${API_ROUTES.gitCommitPush}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...writeHeaders(server.writeToken) },
       body: '{}',
     });
     assert.equal(res.status, 200);
@@ -143,7 +143,7 @@ describe('POST /api/git/commit-push', () => {
   it('rejects a malformed payload with 400 and a problem body', async () => {
     const res = await fetch(`${server.baseUrl}${API_ROUTES.gitCommitPush}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...writeHeaders(server.writeToken) },
       body: JSON.stringify({ mesage: 'typo' }),
     });
     assert.equal(res.status, 400);
@@ -155,7 +155,7 @@ describe('POST /api/git/commit-push', () => {
   it('rejects invalid JSON with 400', async () => {
     const res = await fetch(`${server.baseUrl}${API_ROUTES.gitCommitPush}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...writeHeaders(server.writeToken) },
       body: '{not json',
     });
     assert.equal(res.status, 400);
@@ -169,7 +169,7 @@ describe('POST /api/git/commit-push', () => {
     try {
       const res = await fetch(`${failing.baseUrl}${API_ROUTES.gitCommitPush}`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...writeHeaders(failing.writeToken) },
         body: '{}',
       });
       assert.equal(res.status, 400);
@@ -187,7 +187,7 @@ describe('POST /api/git/commit-push', () => {
     try {
       const res = await fetch(`${failing.baseUrl}${API_ROUTES.gitCommitPush}`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...writeHeaders(failing.writeToken) },
         body: '{}',
       });
       assert.equal(res.status, 401);
@@ -264,7 +264,7 @@ describe('POST /api/assistant/ask', () => {
   it('rejects a body without a question', async () => {
     const res = await fetch(`${server.baseUrl}${API_ROUTES.assistantAsk}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...writeHeaders(server.writeToken) },
       body: '{}',
     });
     assert.equal(res.status, 400);
@@ -276,7 +276,7 @@ describe('POST /api/assistant/ask', () => {
   it('rejects a question that is too short', async () => {
     const res = await fetch(`${server.baseUrl}${API_ROUTES.assistantAsk}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...writeHeaders(server.writeToken) },
       body: JSON.stringify({ question: 'a' }),
     });
     assert.equal(res.status, 400);
@@ -285,7 +285,7 @@ describe('POST /api/assistant/ask', () => {
   it('rejects an over-long question', async () => {
     const res = await fetch(`${server.baseUrl}${API_ROUTES.assistantAsk}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...writeHeaders(server.writeToken) },
       body: JSON.stringify({ question: 'x'.repeat(1001) }),
     });
     assert.equal(res.status, 400);
@@ -294,7 +294,7 @@ describe('POST /api/assistant/ask', () => {
   it('rejects unknown fields', async () => {
     const res = await fetch(`${server.baseUrl}${API_ROUTES.assistantAsk}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...writeHeaders(server.writeToken) },
       body: JSON.stringify({ question: 'что такое RBAC', model: 'gpt' }),
     });
     assert.equal(res.status, 400);
@@ -308,7 +308,7 @@ describe('POST /api/assistant/ask', () => {
     try {
       const res = await fetch(`${server.baseUrl}${API_ROUTES.assistantAsk}`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...writeHeaders(server.writeToken) },
         body: JSON.stringify({ question: 'что такое RBAC' }),
       });
       assert.equal(res.status, 503);

@@ -14,6 +14,7 @@ import { GuidesAndSimulatorSection } from './components/GuidesAndSimulatorSectio
 import { HeroOverview } from './components/HeroOverview';
 import { SidebarNav } from './components/SidebarNav';
 import { StackExtensionAndAdrSection } from './components/StackExtensionAndAdrSection';
+import { ImprovementBoard } from './components/ImprovementBoard';
 import { TableOfContents } from './components/TableOfContents';
 import { TopBar } from './components/TopBar';
 import { VersionSelectorBar } from './components/VersionSelectorBar';
@@ -210,6 +211,7 @@ export default function App() {
           {selectedVersion.includedSectionIds.includes('extended-stack') && (
             <StackExtensionAndAdrSection />
           )}
+          <ImprovementBoard />
         </main>
 
         <TableOfContents
