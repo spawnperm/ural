@@ -29,6 +29,18 @@
 
 ## Быстрый старт
 
+### В Docker (рекомендуется)
+
+Разработка идёт в контейнере внутри WSL — инструменты совпадают с CI, ничего не
+зависит от установленного в Windows. Подробно: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+# http://localhost:3200
+```
+
+### Напрямую в WSL
+
 Требуется **Node.js 22.7+** (сервер запускает TypeScript через встроенное
 удаление типов Node) и **pnpm 11**.
 
@@ -252,6 +264,8 @@ pnpm run lint && pnpm test && pnpm run check:env-docs
   инструменты, включение и ограничения.
 - [`docs/DOMAIN.md`](docs/DOMAIN.md) — контекст «Приглашения»: агрегат, value
   objects, доменные события и границы применения DDD.
+- [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) — разработка в Docker: dev-стек,
+  hot-reload, отличия от production.
 
 ## Лицензия
 

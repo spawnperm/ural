@@ -1,0 +1,72 @@
+# Development stack.
+#
+# Runs inside Docker in WSL (`docker compose -f docker-compose.dev.yml up`), so the
+# toolchain is the same as CI and nothing depends on what is installed on the
+# Windows host.
+#
+# Why a separate file rather than profiles in docker-compose.yml: the production
+# file builds an image with `pnpm build` and runs it as an unprivileged user with
+# no source mount. A dev container needs the opposite — source mounted, Vite
+# watching, dev dependencies present. Trying to express both in one file makes
+# each mode's settings look like leftovers of the other.
+#
+# What is intentionally absent: no database, no broker. The portal has none, and
+# adding empty services "for later" is how a compose file becomes something
+# nobody trusts.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: ural-dev
+    # Not `restart: always`: a dev container that crashes should stay down so the
+    # error is visible, instead of restarting into the same failure in a loop.
+    restart: "no"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      HOST: 0.0.0.0
+      # Read from the WSL environment or a local .env; never baked into the image.
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      WRITE_API_TOKEN: ${WRITE_API_TOKEN:-}
+      GIT_USER_NAME: ${GIT_USER_NAME:-spawnperm}
+      GIT_USER_EMAIL: ${GIT_USER_EMAIL:-spawnperm@gmail.com}
+      # Vite's file watcher needs polling on a bind mount from the Windows drive:
+      # inotify events do not cross the 9p boundary, so edits from the host would
+      # otherwise go unnoticed and the browser would show stale code.
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      # Host port 3000, not 3000: port 3000 in this WSL environment belongs to
+      # another project's container (`pstu-app`). Keeping the host port distinct
+      # means both stacks can run at once instead of fighting over a mapping.
+      - "127.0.0.1:3200:3000"
+      # Vite's HMR websocket. Without this the page loads but never hot-reloads.
+      - "127.0.0.1:24678:24678"
+    volumes:
+      - .:/app
+      # The image's node_modules must win: a bind mount would replace them with
+      # the host tree, which on /mnt/c carries Windows binaries and breaks
+      # esbuild and rolldown at import time.
+      - /app/node_modules
+      # Keep the Vite optimiser cache inside the container so a host-side cache
+      # from a different platform cannot poison it.
+      - /app/node_modules/.vite
+    stdin_open: true
+    tty: true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    stop_grace_period: 10s
