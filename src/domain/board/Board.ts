@@ -83,6 +83,11 @@ export const TRANSITIONS: Record<ColumnId, readonly ColumnId[]> = {
 };
 
 export function canMove(from: ColumnId, to: ColumnId): boolean {
+  // Reordering within a column is not a transition between states: the card stays
+  // where it is, only its position changes. Treating it as a transition made the
+  // most ordinary drag — dragging a card up or down in its own column — fail with
+  // "переход не разрешён", which is what the first version did.
+  if (from === to) return true;
   return TRANSITIONS[from].includes(to);
 }
 
@@ -207,10 +212,8 @@ export class Board {
 
     // Drag-and-drop within the same column reorders; across columns it moves.
     const source = this._columns[from];
-    source.splice(
-      source.findIndex((c) => c.id === cardId),
-      1
-    );
+    const sourceIndex = source.findIndex((c) => c.id === cardId);
+    source.splice(sourceIndex, 1);
 
     const moved: Card = { ...card, movedAt: occurredAt };
 
@@ -241,10 +244,25 @@ export class Board {
     }
 
     const target = this._columns[to];
-    const index =
-      options.toIndex === undefined
-        ? target.length
-        : Math.max(0, Math.min(options.toIndex, target.length));
+
+    /*
+     * Drop index semantics.
+     *
+     * A browser drag reports the index of the card it was dropped *onto*, counted
+     * in the list as it looked while the dragged card was still in it. Removing
+     * that card shifts everything after it down by one, so an index beyond the
+     * original position has to shift too — otherwise dragging a card downwards
+     * lands it one slot past the drop target. The first version ignored this and
+     * `a→2` on `[a,b,c]` produced `[b,c,a]` instead of `[b,a,c]`.
+     */
+    let index: number;
+    if (options.toIndex === undefined) {
+      index = target.length;
+    } else {
+      const adjusted =
+        from === to && sourceIndex < options.toIndex ? options.toIndex - 1 : options.toIndex;
+      index = Math.max(0, Math.min(adjusted, target.length));
+    }
     target.splice(index, 0, moved);
 
     this._events.push({ type: 'CardMoved', cardId, from, to, occurredAt });

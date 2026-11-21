@@ -25,6 +25,7 @@ import { buildOpenApiDocument } from './openapi.ts';
 import { createAssistantRouter } from './assistantRouter.ts';
 import { createMetricsMiddleware, metricsHandler } from './metrics.ts';
 import { createWriteAuthMiddleware } from './writeAuth.ts';
+import { createLogger, createRequestLogger } from './logger.ts';
 import { type HealthResponse } from '../shared/apiContract.ts';
 
 export interface AppOptions {
@@ -49,17 +50,9 @@ export function createApp(options: AppOptions): Express {
   app.use(createMetricsMiddleware());
 
   if (requestLogger) {
-    app.use((req, res, next) => {
-      const startedAt = process.hrtime.bigint();
-      res.on('finish', () => {
-        const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
-        const requestId = (req as Request & { requestId?: string }).requestId ?? '-';
-        console.log(
-          `[ural] ${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs.toFixed(1)}ms id=${requestId}`
-        );
-      });
-      next();
-    });
+    // Structured records: `level`, `requestId` and `durationMs` are addressable
+    // fields, so a log store can query them instead of grepping a formatted line.
+    app.use(createRequestLogger(createLogger({ base: { service: 'ural-docs-portal' } })));
   }
 
   // A documentation portal has no upload surface, so 100 KB is already generous.

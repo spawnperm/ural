@@ -76,7 +76,11 @@ export const TEST_WRITE_TOKEN = 'test-write-token-0123456789';
  * SPA for each of them would slow the suite for no benefit.
  */
 export async function startTestServer(
-  options: StubGitOptions & { writeToken?: string | null; serveFrontend?: boolean } = {}
+  options: StubGitOptions & {
+    writeToken?: string | null;
+    serveFrontend?: boolean;
+    requestLogger?: boolean;
+  } = {}
 ): Promise<TestServer> {
   const writeToken = options.writeToken === undefined ? TEST_WRITE_TOKEN : options.writeToken;
 
@@ -93,7 +97,9 @@ export async function startTestServer(
     git: createStubGit(options),
     version: 'test',
     isProduction: false,
-    requestLogger: false,
+    // Off by default so the test runner's output stays readable; a test that
+    // asserts on log records turns it on.
+    requestLogger: options.requestLogger ?? false,
   });
 
   if (options.serveFrontend) {

@@ -15,6 +15,7 @@ import { HeroOverview } from './components/HeroOverview';
 import { SidebarNav } from './components/SidebarNav';
 import { StackExtensionAndAdrSection } from './components/StackExtensionAndAdrSection';
 import { ImprovementBoard } from './components/ImprovementBoard';
+import { Modal } from './components/Modal';
 import { TableOfContents } from './components/TableOfContents';
 import { TopBar } from './components/TopBar';
 import { VersionSelectorBar } from './components/VersionSelectorBar';
@@ -130,6 +131,20 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F7F5F0] text-[#1C1917]">
+      {/*
+        First focusable element on the page.
+
+        The left navigation holds 47 links, so reaching the content by keyboard
+        meant 47 Tab presses. A skip-link is the standard remedy and costs one
+        hidden element. It becomes visible on focus, or a keyboard user would not
+        know it exists.
+      */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-[#1E3A8A] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
+      >
+        Перейти к содержимому
+      </a>
       <TopBar
         mobileMenuOpen={mobileMenuOpen}
         onToggleMobileMenu={() => setMobileMenuOpen((prev) => !prev)}
@@ -175,7 +190,7 @@ export default function App() {
           />
         </aside>
 
-        <main className="flex-1 min-w-0 space-y-14">
+        <main id="main-content" tabIndex={-1} className="flex-1 min-w-0 space-y-14">
           <TableOfContents
             variant="mobile"
             activeSection={activeSection}
@@ -225,28 +240,23 @@ export default function App() {
       </div>
 
       {/* Git Commit & Push Modal */}
-      {gitModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Применение изменений: коммит и пуш"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+      <Modal
+        open={gitModalOpen}
+        onClose={() => setGitModalOpen(false)}
+        label="Применение изменений: коммит и пуш"
+      >
+        <button
+          type="button"
+          onClick={() => setGitModalOpen(false)}
+          aria-label="Закрыть окно"
+          className="absolute right-4 top-4 z-10 p-1.5 rounded-lg text-[#57534E] hover:text-[#1C1917] hover:bg-[#F7F5F0] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[#1E3A8A]"
         >
-          <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl shadow-xl">
-            <button
-              type="button"
-              onClick={() => setGitModalOpen(false)}
-              aria-label="Закрыть окно"
-              className="absolute right-4 top-4 z-10 p-1.5 rounded-lg text-[#57534E] hover:text-[#1C1917] hover:bg-[#F7F5F0] transition-colors cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <div className="[&>div]:pr-12">
-              <GitCommitPushPanel />
-            </div>
-          </div>
+          <X className="w-4 h-4" />
+        </button>
+        <div className="[&>div]:pr-12">
+          <GitCommitPushPanel />
         </div>
-      )}
+      </Modal>
 
       {/* Institutional Footer */}
       <footer className="border-t border-[#E2DDD4] bg-white">

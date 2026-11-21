@@ -198,3 +198,58 @@ test.describe("commit panel", () => {
     expect(await field.inputValue()).toBe("secret-value");
   });
 });
+
+test.describe('dialog accessibility', () => {
+  /*
+   * Regression tests for three gaps that made the commit panel a dialog in name
+   * only: Escape did not close it, Tab walked into the page behind, and focus was
+   * not returned to the opener.
+   */
+
+  test('skip link is the first focus stop and moves focus to main', async ({ page }) => {
+    await page.goto(baseUrl);
+    await page.keyboard.press('Tab');
+    const focused = await page.evaluate(() => document.activeElement?.textContent?.trim());
+    expect(focused).toBe('Перейти к содержимому');
+
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe('main-content');
+  });
+
+  test('Escape closes the dialog', async ({ page }) => {
+    await page.goto(baseUrl);
+    await page.getByRole('button', { name: 'Коммит и пуш' }).first().click();
+    await expect(page.locator("[role='dialog']")).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator("[role='dialog']")).toHaveCount(0);
+  });
+
+  test('Tab stays inside the dialog', async ({ page }) => {
+    await page.goto(baseUrl);
+    await page.getByRole('button', { name: 'Коммит и пуш' }).first().click();
+    await expect(page.locator("[role='dialog']")).toBeVisible();
+
+    for (let i = 0; i < 10; i++) {
+      await page.keyboard.press('Tab');
+      const inside = await page.evaluate(() =>
+        Boolean(document.activeElement?.closest("[role='dialog']"))
+      );
+      expect(inside).toBe(true);
+    }
+  });
+
+  test('closing returns focus to the button that opened it', async ({ page }) => {
+    await page.goto(baseUrl);
+    const opener = page.getByRole('button', { name: 'Коммит и пуш' }).first();
+    await opener.click();
+    await expect(page.locator("[role='dialog']")).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+
+    const focused = await page.evaluate(() => document.activeElement?.textContent?.trim());
+    expect(focused).toContain('Коммит');
+  });
+});

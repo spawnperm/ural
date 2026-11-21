@@ -61,9 +61,14 @@ describe('transition table', () => {
     assert.equal(canMove('done', 'ideas'), false);
   });
 
-  it('forbids staying put as a transition', () => {
+  it('treats staying in the same column as a reorder, not a transition', () => {
+    // The first version asserted the opposite, and that assumption was the bug:
+    // a same-column move is a position change, not a state change, so it must be
+    // allowed. The transition table below still holds no self-edges — `canMove`
+    // special-cases equality before consulting it.
     for (const column of COLUMN_IDS) {
-      assert.equal(canMove(column, column), false);
+      assert.equal(canMove(column, column), true);
+      assert.equal(TRANSITIONS[column].includes(column), false, 'no self-edge in the table');
     }
   });
 
@@ -142,6 +147,73 @@ describe('Board.move — legal transitions', () => {
     const board = boardWith([card('a'), card('b')]);
     board.move('a', 'inProgress', NOW, { toIndex: 99 });
     assert.equal(board.column('inProgress').length, 1);
+  });
+});
+
+describe('reordering inside one column', () => {
+  /*
+   * Regression tests for two bugs found by probing the implementation:
+   *
+   * 1. `canMove(column, column)` was false, so dragging a card up or down in its
+   *    own column failed with "переход не разрешён" — the most ordinary gesture.
+   * 2. The drop index was applied after removing the card, so dragging downwards
+   *    landed one slot past the target: `a→2` on `[a,b,c]` gave `[b,c,a]`.
+   */
+
+  it('allows a card to stay in its column', () => {
+    assert.equal(canMove('ideas', 'ideas'), true);
+    assert.equal(canMove('inProgress', 'inProgress'), true);
+    assert.equal(canMove('done', 'done'), true);
+  });
+
+  it('moves a card down to the drop target, not past it', () => {
+    const board = boardWith([card('a'), card('b'), card('c')]);
+    board.move('a', 'ideas', NOW, { toIndex: 2 });
+    assert.deepEqual(board.column('ideas').map((c) => c.id), ['b', 'a', 'c']);
+  });
+
+  it('moves a card to the very end when dropped last', () => {
+    const board = boardWith([card('a'), card('b'), card('c')]);
+    board.move('a', 'ideas', NOW, { toIndex: 3 });
+    assert.deepEqual(board.column('ideas').map((c) => c.id), ['b', 'c', 'a']);
+  });
+
+  it('moves a card up to the start', () => {
+    const board = boardWith([card('a'), card('b'), card('c')]);
+    board.move('c', 'ideas', NOW, { toIndex: 0 });
+    assert.deepEqual(board.column('ideas').map((c) => c.id), ['c', 'a', 'b']);
+  });
+
+  it('leaves the order unchanged when dropped onto its own position', () => {
+    const board = boardWith([card('a'), card('b'), card('c')]);
+    board.move('b', 'ideas', NOW, { toIndex: 2 });
+    assert.deepEqual(board.column('ideas').map((c) => c.id), ['a', 'b', 'c']);
+  });
+
+  it('does not shift the index when the drop target is in another column', () => {
+    // The correction applies only to same-column moves; applying it everywhere
+    // would break cross-column drops at the same positions.
+    const board = Board.create({
+      ideas: [card('a'), card('b')],
+      inProgress: [card('x'), card('y')],
+      done: [],
+    });
+    board.move('a', 'inProgress', NOW, { toIndex: 1 });
+    assert.deepEqual(board.column('inProgress').map((c) => c.id), ['x', 'a', 'y']);
+  });
+
+  it('keeps the card count stable while reordering', () => {
+    const board = boardWith([card('a'), card('b'), card('c')]);
+    board.move('a', 'ideas', NOW, { toIndex: 2 });
+    board.move('c', 'ideas', NOW, { toIndex: 0 });
+    assert.equal(board.counts.ideas, 3);
+  });
+
+  it('refuses completion by reordering into done', () => {
+    // A reorder has no note, so dragging into «Выполнено» must still be refused.
+    const board = boardWith([card('a')]);
+    assert.throws(() => board.move('a', 'done', NOW, { toIndex: 0 }), DomainError);
+    assert.equal(board.counts.done, 0);
   });
 });
 
