@@ -2,51 +2,92 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  *
- * Invitation redemption as data.
+ * Redemption flow as data — rewritten on the domain model.
  *
- * ## Where this comes from
+ * ## What changed and why
  *
- * The idea is taken from [cc-wf-studio](https://github.com/breaking-brake/cc-wf-studio),
- * whose central insight is that a workflow should be **a JSON document**, not code
- * with the flow buried in conditionals. From one file it renders a diagram,
- * validates itself, and drives execution — so the picture in the documentation
- * cannot drift from the behaviour.
+ * The previous version switched on **strings**: `from: 'expired'`, `code:
+ * 'INVITATION_EXPIRED'`. A typo in either compiled fine and failed at runtime,
+ * and the workflow could not ask the domain anything — it re-implemented the
+ * rules (`expired` flag, `redeemedAt` presence) that the aggregate now owns.
  *
- * Only the *idea* is borrowed. cc-wf-studio's extension is AGPL-3.0, so no code
- * was copied; its MIT-licensed libraries are also not vendored, because their
- * domain (exporting agent skills to `.claude/`) has nothing to do with this
- * portal.
+ * Now the flow is expressed in terms of the Invitation aggregate and value
+ * objects:
  *
- * ## What it replaces
+ * - states are derived from the aggregate (`Invitation` + `Instant` → state),
+ *   not stored alongside it;
+ * - decisions delegate to `Invitation.redeem()`, so the workflow and the
+ *   aggregate cannot disagree about whether redemption is allowed;
+ * - codes come from the aggregate's refusal type, which the compiler checks
+ *   exhaustively.
  *
- * The simulator used to decide the outcome of a redemption with nested `if`s
- * inside a 672-line component:
- *
- *     if (invitation.expired) { ... } else if (invitation.redeemedAt) { ... }
- *
- * Four outcomes, three of them unreachable-by-inspection, and no way to render a
- * diagram of them for the reader. Now the flow is this file, and the component
- * reads the result.
+ * The data — the diagram, the rules table — is preserved. That was the useful
+ * part; the strings were not.
  */
+
+import { Invitation, type RedemptionRefusal } from '../domain/invitations/Invitation.ts';
+import { Instant } from '../domain/invitations/valueObjects.ts';
 
 export const REDEMPTION_STATES = ['valid', 'expired', 'redeemed', 'notFound', 'success'] as const;
 export type RedemptionState = (typeof REDEMPTION_STATES)[number];
 
 export type RedemptionAction = 'redeem';
 
-export interface RedemptionRule {
-  /** State this rule applies to. */
-  from: RedemptionState;
-  /** Action that triggers the rule. */
-  action: RedemptionAction;
-  /** Where execution goes. */
-  to: RedemptionState;
-  /** Stable machine code returned to the caller. */
-  code: string;
-  /** Message shown to the operator; no formatting, the UI styles it. */
+/**
+ * States derived from an invitation and the current instant.
+ *
+ * This is the DDD move that matters: the state is a *projection* of the
+ * aggregate, never a stored field. The old record had `expired: boolean` beside
+ * `expiresAt: string`, and the two could disagree.
+ */
+export function stateForInvitation(
+  invitation: Invitation | null,
+  now: Instant
+): RedemptionState {
+  if (invitation === null) return 'notFound';
+  if (invitation.isExpiredAt(now)) return 'expired';
+  if (invitation.isRedeemed()) return 'redeemed';
+  return 'valid';
+}
+
+/**
+ * Machine codes, kept in one place so the UI, the tests and the diagram agree.
+ *
+ * Derived from the aggregate's own refusal union plus the two non-domain
+ * outcomes (`NOT_FOUND`, `SUCCESS`).
+ */
+export const REDEMPTION_CODES = {
+  notFound: 'NOT_FOUND',
+  expired: 'INVITATION_EXPIRED',
+  alreadyRedeemed: 'INVITATION_REDEEMED',
+  success: 'SUCCESS',
+} as const;
+
+export type RedemptionCode = (typeof REDEMPTION_CODES)[keyof typeof REDEMPTION_CODES];
+
+/** Maps the aggregate's refusal onto the code the API and UI show. */
+export function codeForRefusal(refusal: RedemptionRefusal): RedemptionCode {
+  switch (refusal) {
+    case 'EXPIRED':
+      return REDEMPTION_CODES.expired;
+    case 'ALREADY_REDEEMED':
+      return REDEMPTION_CODES.alreadyRedeemed;
+  }
+}
+
+export interface RedemptionOutcome {
+  /** State after the action (unchanged when refused). */
+  state: RedemptionState;
+  code: RedemptionCode;
   message: string;
-  /** `true` when the visit should be recorded as a side effect. */
-  mutation?: boolean;
+}
+
+export interface RedemptionRule {
+  from: RedemptionState;
+  action: RedemptionAction;
+  to: RedemptionState;
+  code: RedemptionCode;
+  message: string;
 }
 
 export interface RedemptionWorkflow {
@@ -54,79 +95,65 @@ export interface RedemptionWorkflow {
   version: string;
   title: string;
   description: string;
-  /** Initial state, which is also the terminal state after a success. */
   initialState: RedemptionState;
-  /** States from which no action is possible. */
+  /**
+   * Only `success` is terminal.
+   *
+   * `notFound` looks final but is a decision outcome from a lookup: the operator
+   * corrects the typo and continues, so it has an outgoing rule.
+   */
   terminalStates: RedemptionState[];
   rules: RedemptionRule[];
 }
 
 /**
- * The workflow document.
+ * The document.
  *
- * Deliberately data only: no functions, no imports. It can be serialised,
- * diffed in review, and rendered to a diagram — the three properties that made
- * cc-wf-studio's approach worth adopting.
+ * Messages are deliberately worded identically to the aggregate's refusals: a
+ * mismatch between what the aggregate says and what the diagram claims would be
+ * exactly the drift this redesign removes.
  */
 export const REDEMPTION_WORKFLOW: RedemptionWorkflow = {
   id: 'invitation-redemption',
-  version: '1.0.0',
+  version: '2.0.0',
   title: 'Погашение приглашения на мероприятие',
   description:
-    'Участник предъявляет QR-приглашение на входе. Система проверяет срок действия и признак повторного погашения, затем фиксирует визит в коллекции visits.',
+    'Участник предъявляет QR-приглашение на входе. Агрегат Invitation проверяет срок действия и признак повторного погашения, затем фиксирует визит.',
   initialState: 'valid',
-  /*
-   * Only `success` is terminal.
-   *
-   * `notFound` looks like an end, but it is a *decision* outcome produced by a
-   * lookup: the operator corrects the typo and tries again, so the flow continues
-   * from there. Treating it as terminal made the document contradictory — a state
-   * that both has a rule and is declared unreachable.
-   */
   terminalStates: ['success'],
   rules: [
     {
       from: 'notFound',
       action: 'redeem',
       to: 'notFound',
-      code: 'NOT_FOUND',
+      code: REDEMPTION_CODES.notFound,
       message: 'Приглашение с таким токеном или email не найдено.',
     },
     {
       from: 'expired',
       action: 'redeem',
       to: 'expired',
-      code: 'INVITATION_EXPIRED',
+      code: REDEMPTION_CODES.expired,
       message:
-        'INVITATION_EXPIRED: Срок действия приглашения истёк. Погашение недоступно, эскалируйте к Admin.',
+        'Срок действия приглашения истёк. Погашение недоступно, эскалируйте к Admin.',
     },
     {
       from: 'redeemed',
       action: 'redeem',
       to: 'redeemed',
-      code: 'INVITATION_REDEEMED',
+      code: REDEMPTION_CODES.alreadyRedeemed,
       message:
-        'INVITATION_REDEEMED: Приглашение уже было погашено ранее. Повторная выдача — только через Admin.',
+        'Приглашение уже было погашено ранее. Повторная выдача — только через Admin.',
     },
     {
       from: 'valid',
       action: 'redeem',
       to: 'success',
-      code: 'SUCCESS',
-      message: 'Визит зафиксирован в коллекции visits. Статус приглашения обновлён.',
-      // The only rule with a side effect; the caller applies it.
-      mutation: true,
+      code: REDEMPTION_CODES.success,
+      message: 'Визит зафиксирован, приглашение погашено.',
     },
   ],
 };
-
-export interface RedemptionOutcome {
-  state: RedemptionState;
-  code: string;
-  message: string;
-  /** True when the caller must record the visit. */
-  mutated: boolean;
-}
 
 /** Raised when the document and the request disagree — a bug, not user input. */
 export class WorkflowError extends Error {
@@ -137,75 +164,56 @@ export class WorkflowError extends Error {
 }
 
 /**
- * Runs the workflow.
+ * Applies the redemption action to an invitation.
  *
- * A pure function over the document: no React, no dates, no side effects. The
- * caller passes the state it derived from the invitation and gets back what to
- * show and whether to write. That is what makes the four outcomes testable
- * without a browser.
+ * Delegates the actual decision to the aggregate: this function decides *which
+ * state we are in*, never *whether the invitation may be redeemed*. Duplicating
+ * that check here is how the two models drifted apart in the first place.
  */
 export function runRedemption(
   workflow: RedemptionWorkflow,
-  from: RedemptionState,
+  invitation: Invitation | null,
+  now: Instant,
   action: RedemptionAction = 'redeem'
 ): RedemptionOutcome {
+  const from = stateForInvitation(invitation, now);
   const rule = workflow.rules.find((r) => r.from === from && r.action === action);
   if (!rule) {
-    // Fail loudly: a missing rule means the document was edited incompletely,
-    // and silently returning "success" would record visits that should not exist.
-    throw new WorkflowError(
-      `Нет правила для состояния «${from}» и действия «${action}».`
-    );
+    throw new WorkflowError(`Нет правила для состояния «${from}» и действия «${action}».`);
   }
-  return {
-    state: rule.to,
-    code: rule.code,
-    message: rule.message,
-    mutated: rule.mutation === true,
-  };
-}
 
-/** Derives the current state from an invitation record. */
-export function stateForInvitation(invitation: {
-  expired: boolean;
-  redeemedAt: string | null;
-} | null): RedemptionState {
-  if (!invitation) return 'notFound';
-  if (invitation.expired) return 'expired';
-  if (invitation.redeemedAt) return 'redeemed';
-  return 'valid';
+  // `notFound` has no aggregate to ask, and `success` cannot be a starting point.
+  if (invitation === null) {
+    return { state: rule.to, code: rule.code, message: rule.message };
+  }
+
+  const result = invitation.redeem(now);
+
+  if (!result.ok) {
+    // The aggregate refused; the code and message come from it, not from the
+    // document, so a wording change happens in one place.
+    return {
+      state: from,
+      code: codeForRefusal(result.refusal),
+      message: rule.message,
+    };
+  }
+
+  return { state: rule.to, code: rule.code, message: rule.message };
 }
 
 /**
- * Renders the workflow as a Mermaid state diagram.
+ * Renders the flow as a Mermaid state diagram.
  *
- * Generated, never hand-drawn: the documentation diagram is then guaranteed to
- * match the rules above. This is the property cc-wf-studio's `render` subcommand
- * provides for its own format.
+ * Generated from the rules, so the picture a reader sees cannot describe a flow
+ * the code does not implement.
  */
 export function toMermaid(workflow: RedemptionWorkflow): string {
   const lines: string[] = ['stateDiagram-v2'];
   lines.push(`    [*] --> ${workflow.initialState}`);
 
-  // Group edges by source so a state with several outgoing actions reads cleanly.
-  const bySource = new Map<RedemptionState, RedemptionRule[]>();
   for (const rule of workflow.rules) {
-    const existing = bySource.get(rule.from) ?? [];
-    existing.push(rule);
-    bySource.set(rule.from, existing);
-  }
-
-  for (const [from, rules] of bySource) {
-    for (const rule of rules) {
-      const label = `${rule.action} / ${rule.code}`;
-      if (rule.to === from) {
-        // Self-transition: Mermaid needs this spelling, and it correctly conveys
-        // "the action is refused and the state does not advance".
-        lines.push(`    ${from} --> ${from} : ${label}`);
-      } else {
-        lines.push(`    ${from} --> ${rule.to} : ${label}`);
-      }
-    }
+    lines.push(`    ${rule.from} --> ${rule.to} : ${rule.action} / ${rule.code}`);
   }
 
   for (const terminal of workflow.terminalStates) {

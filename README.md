@@ -91,6 +91,7 @@ src/shared/apiContract.ts типы запросов и ответов, общи�
 src/components/           секции портала
 src/data/                 контент документации и снапшоты версий
   redemptionWorkflow.ts   погашение приглашения как данные: исполнение + диаграмма
+src/domain/invitations/   контекст «Приглашения»: агрегат, value objects, события
 src/temporal/             оркестрация квеста на Temporal (эталон для сервиса workers)
   workflows.ts            детерминированные саги: печати, протухание, артефакты
   activities.ts           идемпотентные эффекты: запись, публикация, рендер
@@ -239,6 +240,8 @@ pnpm run lint && pnpm test && pnpm run check:env-docs
   правила детерминизма, идемпотентность activities и границы реализации.
 - [`docs/ASSISTANT.md`](docs/ASSISTANT.md) — ассистент по документации: корпус,
   инструменты, включение и ограничения.
+- [`docs/DOMAIN.md`](docs/DOMAIN.md) — контекст «Приглашения»: агрегат, value
+  objects, доменные события и границы применения DDD.
 
 ## Лицензия
 

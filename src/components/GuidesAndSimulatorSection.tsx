@@ -10,56 +10,77 @@ import {
 } from 'lucide-react';
 import { SIMULATOR_QUEST, TROUBLESHOOTING_ROWS } from '../data/projectDocs';
 import {
+  REDEMPTION_CODES,
   REDEMPTION_WORKFLOW,
   runRedemption,
   stateForInvitation,
   toMermaid,
 } from '../data/redemptionWorkflow';
+import { Invitation, type InvitationSnapshot } from '../domain/invitations/Invitation';
+import { Instant } from '../domain/invitations/valueObjects';
 import { ResilientImage } from './ResilientImage';
+
+/**
+ * The simulator's "current time".
+ *
+ * Fixed rather than `new Date()` on purpose: the demo shows three preset
+ * invitations whose states (valid / expired / redeemed) only make sense at a
+ * known instant. Using the wall clock would make the "expired" example expire
+ * differently every day and the screenshot in the docs would drift.
+ */
+const SIMULATOR_NOW = Instant.parse('2026-11-20T11:45:00Z');
 
 type GuideRoleTab = 'user' | 'content' | 'event' | 'admin';
 
-interface InvitationRecord {
-  token: string;
-  userEmail: string;
-  userName: string;
-  sealsCount: number;
-  eventTitle: string;
-  expiresAt: string;
-  redeemedAt: string | null;
-  expired: boolean;
-}
-
-const PRESET_INVITATIONS: Record<string, InvitationRecord> = {
+/**
+ * Demo invitations for the simulator.
+ *
+ * Shape is `InvitationSnapshot` — the aggregate's own persistence form. The
+ * component no longer declares a parallel `InvitationRecord` with a duplicated
+ * `expired` flag: that duplication was the defect the aggregate removed, and
+ * re-introducing it here would have undone the work one layer up.
+ */
+const PRESET_INVITATIONS: Record<string, InvitationSnapshot> = {
   valid: {
     token: 'inv-2026-11-bering-84a9',
-    userEmail: 'ivanov.perm@example.com',
-    userName: 'Алексей Иванов',
-    sealsCount: 3,
+    participantEmail: 'ivanov.perm@example.com',
+    participantName: 'Алексей Иванов',
     eventTitle: 'Встреча первооткрывателей · Оса, музей',
+    seals: 3,
     expiresAt: '2026-11-28T14:00:00Z',
     redeemedAt: null,
-    expired: false,
   },
   expired: {
+    // Issued in September, lapsed on the 25th. No `expired` flag: the aggregate
+    // derives it from `expiresAt`.
     token: 'inv-2026-09-dezhnev-11c2',
-    userEmail: 'petrova.k@example.com',
-    userName: 'Мария Петрова',
-    sealsCount: 3,
+    participantEmail: 'petrova.k@example.com',
+    participantName: 'Мария Петрова',
     eventTitle: 'Сентябрьское собрание · Оса, музей',
+    seals: 3,
     expiresAt: '2026-09-25T18:00:00Z',
     redeemedAt: null,
-    expired: true,
   },
   redeemed: {
-    token: 'inv-2026-10-ermak-55f0',
-    userEmail: 'smirnov.a@example.com',
-    userName: 'Дмитрий Смирнов',
-    sealsCount: 3,
+    /*
+     * Dates are coherent with the scenario, and that is the point.
+     *
+     * Under the old model this fixture carried `expired: false` while its
+     * `expiresAt` (30 October) was *before* the simulator's "now" (20 November) —
+     * the flag said "fine", the date said "lapsed", and the UI trusted the flag.
+     * The scenario labelled "Уже погашено" therefore demonstrated the wrong state.
+     *
+     * With expiry derived from `expiresAt`, an incoherent fixture becomes visible
+     * immediately, so it is corrected: redeemed on 19 November, valid until the
+     * 28th. The badge now says "Погашено", which is what the button promises.
+     */
+    token: 'inv-2026-11-ermak-55f0',
+    participantEmail: 'smirnov.a@example.com',
+    participantName: 'Дмитрий Смирнов',
     eventTitle: 'Октябрьский лекторий · Пермь',
-    expiresAt: '2026-10-30T16:00:00Z',
-    redeemedAt: '2026-10-30T15:42:10Z',
-    expired: false,
+    seals: 3,
+    expiresAt: '2026-11-28T16:00:00Z',
+    redeemedAt: '2026-11-19T15:42:10Z',
   },
 };
 
@@ -74,7 +95,7 @@ export function GuidesAndSimulatorSection() {
 
   // Event Manager QR Validator State
   const [invitations, setInvitations] =
-    useState<Record<string, InvitationRecord>>(PRESET_INVITATIONS);
+    useState<Record<string, InvitationSnapshot>>(PRESET_INVITATIONS);
   const [activeTokenKey, setActiveTokenKey] = useState<string>('valid');
   const [lookupInput, setLookupInput] = useState<string>(
     PRESET_INVITATIONS.valid.token
@@ -118,37 +139,60 @@ export function GuidesAndSimulatorSection() {
 
   const handleIssueRewardToken = () => {
     const newToken = 'inv-2026-11-quest-' + String(1000 + correctCount * 111);
-    setInvitations((prev) => ({
-      ...prev,
-      custom: {
-        token: newToken,
-        userEmail: 'participant@perm-quest.ru',
-        userName: 'Участник (3 месяца подряд)',
-        sealsCount: Math.max(1, correctCount),
-        eventTitle: `${SIMULATOR_QUEST.monthLabel} · ${SIMULATOR_QUEST.location}`,
-        expiresAt: '2026-11-28T14:00:00Z',
-        redeemedAt: null,
-        expired: false,
-      },
-    }));
+    /*
+     * Construction goes through the aggregate, not through an object literal.
+     * That is the point of the domain layer: an invariant written once cannot be
+     * forgotten at this call site — the previous version had to remember
+     * `Math.max(1, correctCount)` and `expired: false` by hand.
+     */
+    const issued = Invitation.issue({
+      token: newToken,
+      participantEmail: 'participant@perm-quest.ru',
+      participantName: 'Участник (3 месяца подряд)',
+      eventTitle: `${SIMULATOR_QUEST.monthLabel} · ${SIMULATOR_QUEST.location}`,
+      seals: Math.max(1, correctCount),
+      issuedAt: '2026-11-20T11:45:00Z',
+      expiresAt: '2026-11-28T14:00:00Z',
+    });
+    // Drain the issuance event: the simulator has no broker, and leaving the
+    // buffer full would let it leak into a later redemption.
+    issued.pullEvents();
+
+    setInvitations((prev) => ({ ...prev, custom: issued.toSnapshot() }));
     setActiveTokenKey('custom');
     setLookupInput(newToken);
     setRedeemFeedback(null);
   };
 
-  const currentInvitation = invitations[activeTokenKey];
+  const currentSnapshot = invitations[activeTokenKey];
+
+  /*
+   * The aggregate is rebuilt from the snapshot on every render. A `useMemo` would
+   * be premature — the component re-renders on a click, not in a loop — and
+   * mutating an aggregate held in state across renders would be worse: React may
+   * discard a component's state, and an aggregate is not a value.
+   */
+  const currentInvitation = currentSnapshot ? Invitation.restore(currentSnapshot) : null;
+
+  /**
+   * The invitation's state, computed once and used by both the badge and the
+   * redemption button. Two independent computations is how the UI ended up
+   * showing "Погашено" next to "срок истёк".
+   */
+  const currentState = stateForInvitation(currentInvitation, SIMULATOR_NOW);
 
   const handleLookupByInput = () => {
     const query = lookupInput.trim().toLowerCase();
     const matchedEntry = Object.entries(invitations).find(
-      ([, rec]) =>
-        rec.token.toLowerCase() === query ||
-        rec.userEmail.toLowerCase() === query
+      ([, snapshot]) =>
+        snapshot.token.toLowerCase() === query ||
+        // Email is a courtesy lookup: an operator may have the address, not the QR.
+        snapshot.participantEmail.toLowerCase() === query
     );
     if (!matchedEntry) {
       // The not-found path is a state in the workflow document, not a branch
       // here: the message and code come from the same rules the diagram shows.
-      const outcome = runRedemption(REDEMPTION_WORKFLOW, 'notFound');
+      const outcome = runRedemption(REDEMPTION_WORKFLOW, null, SIMULATOR_NOW);
       setRedeemFeedback({ code: outcome.code, message: outcome.message });
       return;
     }
@@ -157,25 +201,22 @@ export function GuidesAndSimulatorSection() {
   };
 
   const handleRedeemInvitation = () => {
-    // State derivation and outcome both come from `redemptionWorkflow.ts`, so the
-    // diagram in the documentation and the behaviour cannot drift apart.
-    const outcome = runRedemption(
-      REDEMPTION_WORKFLOW,
-      stateForInvitation(currentInvitation ?? null)
-    );
+    // State derivation and the decision both belong to the domain layer; this
+    // handler only applies the outcome. The diagram in the documentation is
+    // generated from the same rules, so the two cannot drift apart.
+    const outcome = runRedemption(REDEMPTION_WORKFLOW, currentInvitation, SIMULATOR_NOW);
 
-    if (outcome.mutated) {
-      const nowIso = '2026-11-20T11:45:00Z';
+    if (outcome.code === REDEMPTION_CODES.success && currentInvitation) {
+      // The aggregate already recorded `redeemedAt` and raised its event; the
+      // component persists the new snapshot and discards the event.
+      currentInvitation.pullEvents();
       setInvitations((prev) => ({
         ...prev,
-        [activeTokenKey]: {
-          ...prev[activeTokenKey],
-          redeemedAt: nowIso,
-        },
+        [activeTokenKey]: currentInvitation.toSnapshot(),
       }));
       setRedeemFeedback({
         code: outcome.code,
-        message: `${outcome.message.replace(/\.$/, '')} (${nowIso}).`,
+        message: `${outcome.message.replace(/\.$/, '')} (${SIMULATOR_NOW.iso}).`,
       });
       return;
     }
@@ -628,10 +669,11 @@ export function GuidesAndSimulatorSection() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-[#1C1917]">
-                        {currentInvitation.userName}
+                        {currentInvitation.participantName}
                       </div>
                       <div className="font-mono text-xs text-[#57534E]">
-                        {currentInvitation.userEmail} · Токен: {currentInvitation.token}
+                        {currentInvitation.participantEmail} · Токен:{' '}
+                        {currentInvitation.token.value}
                       </div>
                     </div>
                     <QrCode className="w-8 h-8 text-[#1E3A8A] shrink-0" strokeWidth={1.5} />
@@ -647,21 +689,33 @@ export function GuidesAndSimulatorSection() {
                     <div>
                       <dt className="text-[#78716C]">Печатей в серии</dt>
                       <dd className="font-medium text-[#1C1917] mt-0.5">
-                        {currentInvitation.sealsCount}
+                        {currentInvitation.seals.value}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-[#78716C]">Действует до</dt>
                       <dd className="font-mono text-[#1C1917] mt-0.5">
-                        {currentInvitation.expiresAt.slice(0, 10)}
+                        {currentInvitation.expiresAt.iso.slice(0, 10)}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-[#78716C]">Текущий статус</dt>
                       <dd className="font-medium mt-0.5">
-                        {currentInvitation.redeemedAt ? (
+                        {/*
+                          One source of truth for the badge.
+
+                          An earlier version checked `isRedeemed()` first, which
+                          made the badge say "Погашено" for an invitation that had
+                          also lapsed — while the redemption attempt beside it
+                          correctly refused with "срок истёк". Two places
+                          computing the same thing disagreed on screen.
+
+                          `stateForInvitation` is the same function the redemption
+                          path uses, so the badge and the outcome cannot diverge.
+                        */}
+                        {currentState === 'success' || currentState === 'redeemed' ? (
                           <span className="text-[#9A3412]">Погашено</span>
-                        ) : currentInvitation.expired ? (
+                        ) : currentState === 'expired' ? (
                           <span className="text-[#DC2626]">Просрочено</span>
                         ) : (
                           <span className="text-[#16A34A]">Действительно</span>

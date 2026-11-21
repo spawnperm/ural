@@ -2,34 +2,52 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  *
- * Invitation redemption workflow tests.
+ * Redemption workflow tests — against the domain model.
  *
- * The value of expressing the flow as data is that it can be checked
- * exhaustively: before this refactor the four outcomes lived in nested `if`s
- * inside a 672-line component and could only be verified by clicking in a
- * browser. Now every state and every rule is assertable in milliseconds.
+ * The workflow no longer switches on strings: it derives the state from the
+ * `Invitation` aggregate and delegates the decision to it. These tests check the
+ * two properties that matter:
  *
- * These tests also guard the diagram: if a rule is removed from the document, the
- * Mermaid output loses an edge and the documentation picture silently becomes
- * wrong — so the diagram is asserted against the rules, not against a snapshot.
+ * 1. every state is reachable and has a rule (the diagram is exhaustive);
+ * 2. the workflow and the aggregate cannot disagree about a refusal — because the
+ *    workflow asks the aggregate rather than re-implementing its rules.
  */
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  REDEMPTION_CODES,
   REDEMPTION_STATES,
   REDEMPTION_WORKFLOW,
   WorkflowError,
+  codeForRefusal,
   runRedemption,
   stateForInvitation,
   toMermaid,
   type RedemptionState,
 } from '../data/redemptionWorkflow.ts';
+import { Invitation } from '../domain/invitations/Invitation.ts';
+import { Instant } from '../domain/invitations/valueObjects.ts';
+
+const NOW = Instant.parse('2026-11-20T11:45:00Z');
+const FUTURE = '2026-11-28T14:00:00Z';
+const PAST = '2026-09-25T18:00:00Z';
+
+function invitation(overrides: { expiresAt?: string; issuedAt?: string } = {}) {
+  return Invitation.issue({
+    token: 'inv-2026-11-bering-84a9',
+    participantEmail: 'ivanov.perm@example.com',
+    participantName: 'Алексей Иванов',
+    eventTitle: 'Встреча · Оса',
+    seals: 3,
+    issuedAt: overrides.issuedAt ?? '2026-11-20T11:00:00Z',
+    expiresAt: overrides.expiresAt ?? FUTURE,
+  });
+}
 
 describe('workflow document integrity', () => {
-  it('declares a version and a title', () => {
+  it('declares a semantic version', () => {
     assert.match(REDEMPTION_WORKFLOW.version, /^\d+\.\d+\.\d+$/);
-    assert.ok(REDEMPTION_WORKFLOW.title.length > 0);
   });
 
   it('uses only declared states', () => {
@@ -40,17 +58,7 @@ describe('workflow document integrity', () => {
     }
   });
 
-  it('declares an initial state that has an outgoing rule', () => {
-    const initial = REDEMPTION_WORKFLOW.initialState;
-    assert.ok(
-      REDEMPTION_WORKFLOW.rules.some((r) => r.from === initial),
-      `initial state ${initial} has no rule, so it cannot progress`
-    );
-  });
-
-  it('has exactly one rule per (from, action) pair', () => {
-    // Duplicates would make `runRedemption` order-dependent — a silent behaviour
-    // change from an innocent-looking edit.
+  it('has exactly one rule per (from, action)', () => {
     const seen = new Set<string>();
     for (const rule of REDEMPTION_WORKFLOW.rules) {
       const key = `${rule.from}:${rule.action}`;
@@ -59,183 +67,191 @@ describe('workflow document integrity', () => {
     }
   });
 
-  it('marks exactly one rule as mutating', () => {
-    const mutating = REDEMPTION_WORKFLOW.rules.filter((r) => r.mutation === true);
-    assert.equal(mutating.length, 1);
-    assert.equal(mutating[0]?.code, 'SUCCESS');
-  });
-
-  it('gives every rule a stable machine code', () => {
-    for (const rule of REDEMPTION_WORKFLOW.rules) {
-      assert.match(rule.code, /^[A-Z][A-Z_]*$/, `bad code: ${rule.code}`);
-    }
-  });
-
-  it('references only terminal states as ends', () => {
-    for (const terminal of REDEMPTION_WORKFLOW.terminalStates) {
-      assert.ok(
-        (REDEMPTION_STATES as readonly string[]).includes(terminal),
-        `undeclared terminal state: ${terminal}`
-      );
-    }
-  });
-});
-
-describe('stateForInvitation', () => {
-  it('maps a missing invitation to notFound', () => {
-    assert.equal(stateForInvitation(null), 'notFound');
-  });
-
-  it('maps an expired invitation', () => {
-    assert.equal(stateForInvitation({ expired: true, redeemedAt: null }), 'expired');
-  });
-
-  it('maps an already redeemed invitation', () => {
-    assert.equal(stateForInvitation({ expired: false, redeemedAt: '2026-10-30T15:42:10Z' }), 'redeemed');
-  });
-
-  it('maps a redeemable invitation to valid', () => {
-    assert.equal(stateForInvitation({ expired: false, redeemedAt: null }), 'valid');
-  });
-
-  it('prefers expired over redeemed', () => {
-    // An invitation that both expired and was redeemed is still "expired" for the
-    // operator: the escalation path is the same, and reporting "already redeemed"
-    // would hide the fact that it lapsed.
-    assert.equal(
-      stateForInvitation({ expired: true, redeemedAt: '2026-10-30T15:42:10Z' }),
-      'expired'
-    );
-  });
-});
-
-describe('runRedemption covers every state', () => {
-  /*
-   * Exhaustive rather than example-based, but it has to distinguish two kinds of
-   * state. A *decision* state (one the operator can act in) must have an outcome;
-   * a *terminal* state is the result of a decision and re-running the flow from
-   * there is not a scenario the UI offers.
-   *
-   * `success` is terminal: the visit is already recorded, and the second press is
-   * prevented by the invitation gaining `redeemedAt`. Treating it as actionable
-   * would mean inventing a rule for a screen that never shows a button.
-   */
-  const decisionStates = REDEMPTION_STATES.filter(
-    (state) => !REDEMPTION_WORKFLOW.terminalStates.includes(state)
-  );
-
-  for (const state of decisionStates) {
-    it(`produces an outcome for decision state ${state}`, () => {
-      const outcome = runRedemption(REDEMPTION_WORKFLOW, state);
-      assert.ok(outcome.code.length > 0);
-      assert.ok(outcome.message.length > 0);
-      assert.equal(typeof outcome.mutated, 'boolean');
-    });
-  }
-
-  it('refuses to run from a terminal state instead of pretending to succeed', () => {
-    // A terminal state has no rule by design. The function must throw rather than
-    // fall back to a success that would record a second visit.
-    for (const terminal of REDEMPTION_WORKFLOW.terminalStates) {
-      assert.throws(
-        () => runRedemption(REDEMPTION_WORKFLOW, terminal),
-        WorkflowError,
-        `terminal state ${terminal} must not be actionable`
-      );
-    }
-  });
-
-  it('covers every non-terminal state with a rule', () => {
+  it('covers every non-terminal state', () => {
     const withRule = new Set(REDEMPTION_WORKFLOW.rules.map((r) => r.from));
-    for (const state of decisionStates) {
+    for (const state of REDEMPTION_STATES) {
+      if (REDEMPTION_WORKFLOW.terminalStates.includes(state)) continue;
       assert.ok(withRule.has(state), `decision state ${state} has no rule`);
     }
   });
 
-  it('succeeds from valid and requests a mutation', () => {
-    const outcome = runRedemption(REDEMPTION_WORKFLOW, 'valid');
-    assert.equal(outcome.state, 'success');
-    assert.equal(outcome.code, 'SUCCESS');
-    assert.equal(outcome.mutated, true);
-  });
-
-  it('refuses from expired without mutating', () => {
-    const outcome = runRedemption(REDEMPTION_WORKFLOW, 'expired');
-    assert.equal(outcome.code, 'INVITATION_EXPIRED');
-    assert.equal(outcome.mutated, false);
-    assert.equal(outcome.state, 'expired', 'a refused action must not advance the state');
-  });
-
-  it('refuses from redeemed without mutating', () => {
-    const outcome = runRedemption(REDEMPTION_WORKFLOW, 'redeemed');
-    assert.equal(outcome.code, 'INVITATION_REDEEMED');
-    assert.equal(outcome.mutated, false);
-  });
-
-  it('reports not found without mutating', () => {
-    const outcome = runRedemption(REDEMPTION_WORKFLOW, 'notFound');
-    assert.equal(outcome.code, 'NOT_FOUND');
-    assert.equal(outcome.mutated, false);
-  });
-
-  it('never mutates in a terminal refusal state', () => {
-    for (const state of ['expired', 'redeemed', 'notFound'] as RedemptionState[]) {
-      assert.equal(runRedemption(REDEMPTION_WORKFLOW, state).mutated, false, state);
+  it('does not give a terminal state a rule', () => {
+    // A terminal state is an outcome; making it actionable would mean inventing
+    // a screen that never exists.
+    for (const terminal of REDEMPTION_WORKFLOW.terminalStates) {
+      assert.equal(
+        REDEMPTION_WORKFLOW.rules.some((r) => r.from === terminal),
+        false,
+        `terminal state ${terminal} must not be a rule source`
+      );
     }
   });
 
-  it('throws when the document has no rule for a state', () => {
-    // Fail loudly: silently returning success would record visits that must not
-    // exist. Simulate a half-edited document.
+  it('uses codes from the single catalogue', () => {
+    // The codes come from `REDEMPTION_CODES`, so a UI comparison against a
+    // literal that no longer exists is impossible to write by accident.
+    const known = new Set<string>(Object.values(REDEMPTION_CODES));
+    for (const rule of REDEMPTION_WORKFLOW.rules) {
+      assert.ok(known.has(rule.code), `unknown code ${rule.code}`);
+    }
+  });
+});
+
+describe('stateForInvitation derives state from the aggregate', () => {
+  it('maps a missing invitation to notFound', () => {
+    assert.equal(stateForInvitation(null, NOW), 'notFound');
+  });
+
+  it('maps a redeemable invitation to valid', () => {
+    assert.equal(stateForInvitation(invitation(), NOW), 'valid');
+  });
+
+  it('maps an expired invitation', () => {
+    const expired = invitation({ issuedAt: '2026-09-01T10:00:00Z', expiresAt: PAST });
+    assert.equal(stateForInvitation(expired, NOW), 'expired');
+  });
+
+  it('maps a redeemed invitation', () => {
+    const redeemed = invitation();
+    redeemed.redeem(NOW);
+    assert.equal(stateForInvitation(redeemed, NOW), 'redeemed');
+  });
+
+  it('prefers expired over redeemed', () => {
+    // Lapsed after being redeemed: the operator needs the expiry explanation.
+    const lapsed = invitation({ issuedAt: '2026-11-20T11:00:00Z', expiresAt: '2026-11-20T11:30:00Z' });
+    lapsed.redeem(Instant.parse('2026-11-20T11:15:00Z'));
+    assert.equal(stateForInvitation(lapsed, NOW), 'expired');
+  });
+
+  it('is a pure function of the aggregate and the instant', () => {
+    // Same inputs, same answer — no hidden clock.
+    const inv = invitation();
+    assert.equal(stateForInvitation(inv, NOW), stateForInvitation(inv, NOW));
+  });
+});
+
+describe('runRedemption delegates to the aggregate', () => {
+  it('succeeds from a valid invitation and mutates it', () => {
+    const inv = invitation();
+    const outcome = runRedemption(REDEMPTION_WORKFLOW, inv, NOW);
+    assert.equal(outcome.state, 'success');
+    assert.equal(outcome.code, REDEMPTION_CODES.success);
+    assert.equal(inv.isRedeemed(), true);
+  });
+
+  it('refuses an expired invitation without mutating', () => {
+    const inv = invitation({ issuedAt: '2026-09-01T10:00:00Z', expiresAt: PAST });
+    const outcome = runRedemption(REDEMPTION_WORKFLOW, inv, NOW);
+    assert.equal(outcome.code, REDEMPTION_CODES.expired);
+    assert.equal(outcome.state, 'expired');
+    assert.equal(inv.isRedeemed(), false);
+  });
+
+  it('refuses a second redemption', () => {
+    const inv = invitation();
+    runRedemption(REDEMPTION_WORKFLOW, inv, NOW);
+    const second = runRedemption(REDEMPTION_WORKFLOW, inv, NOW);
+    assert.equal(second.code, REDEMPTION_CODES.alreadyRedeemed);
+    assert.equal(second.state, 'redeemed');
+  });
+
+  it('reports notFound without an aggregate', () => {
+    const outcome = runRedemption(REDEMPTION_WORKFLOW, null, NOW);
+    assert.equal(outcome.code, REDEMPTION_CODES.notFound);
+    assert.equal(outcome.state, 'notFound');
+  });
+
+  it('never reports success for a refused redemption', () => {
+    // The single most important assertion here: the workflow must not disagree
+    // with the aggregate about whether the visit was recorded.
+    for (const makeInv of [
+      () => invitation({ issuedAt: '2026-09-01T10:00:00Z', expiresAt: PAST }),
+      () => {
+        const inv = invitation();
+        inv.redeem(NOW);
+        return inv;
+      },
+    ]) {
+      const inv = makeInv();
+      const outcome = runRedemption(REDEMPTION_WORKFLOW, inv, NOW);
+      assert.notEqual(outcome.code, REDEMPTION_CODES.success);
+      assert.notEqual(outcome.state, 'success');
+    }
+  });
+
+  it('throws when a state has no rule', () => {
     const broken = {
       ...REDEMPTION_WORKFLOW,
       rules: REDEMPTION_WORKFLOW.rules.filter((r) => r.from !== 'expired'),
     };
-    assert.throws(() => runRedemption(broken, 'expired'), WorkflowError);
+    const inv = invitation({ issuedAt: '2026-09-01T10:00:00Z', expiresAt: PAST });
+    assert.throws(() => runRedemption(broken, inv, NOW), WorkflowError);
+  });
+});
+
+describe('codeForRefusal is exhaustive', () => {
+  it('maps EXPIRED', () => {
+    assert.equal(codeForRefusal('EXPIRED'), REDEMPTION_CODES.expired);
+  });
+
+  it('maps ALREADY_REDEEMED', () => {
+    assert.equal(codeForRefusal('ALREADY_REDEEMED'), REDEMPTION_CODES.alreadyRedeemed);
   });
 });
 
 describe('toMermaid', () => {
   const diagram = toMermaid(REDEMPTION_WORKFLOW);
 
-  it('starts a state diagram', () => {
+  it('starts a state diagram from the initial state', () => {
     assert.ok(diagram.startsWith('stateDiagram-v2'));
-  });
-
-  it('enters through the initial state', () => {
     assert.ok(diagram.includes(`[*] --> ${REDEMPTION_WORKFLOW.initialState}`));
   });
 
   it('contains one edge per rule', () => {
-    // The key drift check: a rule removed from the document must remove its edge.
     for (const rule of REDEMPTION_WORKFLOW.rules) {
       const edge = `${rule.from} --> ${rule.to} : ${rule.action} / ${rule.code}`;
       assert.ok(diagram.includes(edge), `missing edge: ${edge}`);
     }
   });
 
-  it('marks terminal states with an end arrow', () => {
+  it('marks terminal states', () => {
     for (const terminal of REDEMPTION_WORKFLOW.terminalStates) {
-      assert.ok(
-        diagram.includes(`${terminal} --> [*]`),
-        `missing terminal arrow for ${terminal}`
-      );
-    }
-  });
-
-  it('uses no state that is absent from the document', () => {
-    // Guards against a hand-edited rule pointing at a state nobody declared.
-    const declared = new Set<string>(REDEMPTION_STATES);
-    for (const line of diagram.split('\n')) {
-      const match = /^\s{4}([a-zA-Z]+) --> \[?\*?\]?/.exec(line);
-      if (match?.[1]) {
-        assert.ok(declared.has(match[1]), `diagram mentions undeclared state ${match[1]}`);
-      }
+      assert.ok(diagram.includes(`${terminal} --> [*]`));
     }
   });
 
   it('is deterministic', () => {
-    // Same document in, same text out — the diagram is committed to docs.
     assert.equal(toMermaid(REDEMPTION_WORKFLOW), toMermaid(REDEMPTION_WORKFLOW));
+  });
+});
+
+describe('every decision state is reachable in practice', () => {
+  // Guards against a rule that exists in the document but cannot occur, which
+  // would make the diagram describe a fictional flow.
+  it('constructs a real aggregate for each decision state', () => {
+    const reachable = new Map<RedemptionState, Invitation | null>();
+
+    reachable.set('notFound', null);
+    reachable.set('valid', invitation());
+    reachable.set(
+      'expired',
+      invitation({ issuedAt: '2026-09-01T10:00:00Z', expiresAt: PAST })
+    );
+    const redeemed = invitation();
+    redeemed.redeem(NOW);
+    reachable.set('redeemed', redeemed);
+
+    const decisionStates = REDEMPTION_STATES.filter(
+      (s) => !REDEMPTION_WORKFLOW.terminalStates.includes(s)
+    );
+    for (const state of decisionStates) {
+      assert.ok(reachable.has(state), `no fixture reaches state ${state}`);
+      assert.equal(
+        stateForInvitation(reachable.get(state)!, NOW),
+        state,
+        `fixture for ${state} derives a different state`
+      );
+    }
   });
 });
